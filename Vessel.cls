@@ -652,7 +652,7 @@ End Function
 
 
 Public Function CreateBlaster(ByVal s As Slots) As Device
-    Set CreateStarGun = SetupDevice("Blaster", s, 0.3)
+    Set CreateBlaster = SetupDevice("Blaster", s, 0.3)
 End Function
 
 
