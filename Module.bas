@@ -376,8 +376,15 @@ Public Function LoadImg(ByVal name As String, Optional ByVal x As Long = -1, Opt
             Optional ByVal w As Long = -1, Optional ByVal h As Long = -1) As Image
 On Error GoTo lerr
     Dim i As New Image
+    Dim fullPath As String
+    Dim fso As Object
+    fullPath = imgDir & name
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If Not fso.FileExists(fullPath) Then
+        Logt "LoadImg precheck: file not found [" & fullPath & "]", False
+    End If
     i.filename = name
-    Set i.pict = LoadPicture(imgDir & name)
+    Set i.pict = LoadPicture(fullPath)
     i.hBitmap = i.pict.handle
     If x >= 0 Then i.x = x
     If y >= 0 Then i.y = y
@@ -400,21 +407,29 @@ End Function
 Public Function GdipLoadImg(ByVal name As String, Optional ByVal x As Long = -1, Optional ByVal y As Long = -1, _
             Optional ByVal w As Long = -1, Optional ByVal h As Long = -1) As Image
     Dim i As New Image
-    Dim val As Long
+    Dim imgHandle As LongPtr
+    Dim dimVal As Long
+    Dim fullPath As String
+    Dim fso As Object
+    fullPath = imgDir & name
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If Not fso.FileExists(fullPath) Then
+        Logt "GdipLoadImg precheck: file not found [" & fullPath & "]", False
+    End If
     i.filename = name
-    s = GdipLoadImageFromFile(StrConv(imgDir & name, vbUnicode), val)
+    s = GdipLoadImageFromFile(StrConv(fullPath, vbUnicode), imgHandle)
     If s <> GpStatus.Ok Then
-        Logt "GdipLoadImg failed: file=[" & imgDir & name & "], status=" & status(s), False
+        Logt "GdipLoadImg failed: file=[" & fullPath & "], status=" & status(s), False
         Set GdipLoadImg = Nothing
         Exit Function
     End If
-    i.handle = val
+    i.handle = imgHandle
     If x >= 0 Then i.x = x
     If y >= 0 Then i.y = y
-    If w >= 0 Then val = w Else s = GdipGetImageWidth(i.handle, val)
-    i.width = val
-    If h >= 0 Then val = h Else s = GdipGetImageHeight(i.handle, val)
-    i.height = val
+    If w >= 0 Then dimVal = w Else s = GdipGetImageWidth(i.handle, dimVal)
+    i.width = dimVal
+    If h >= 0 Then dimVal = h Else s = GdipGetImageHeight(i.handle, dimVal)
+    i.height = dimVal
     i.size = CSng(Sqr(CDbl(i.width * i.width + i.height * i.height)))
     i.drawInLoop = True
     i.filterColor = &HFFFFFF
@@ -1866,7 +1881,11 @@ Public Sub OpenWindow(Optional dummy As Boolean = False)
     Call GetCurrentDirectory(255, wDir)
     zp = InStr(1, wDir, Chr(0), vbBinaryCompare)
     If zp > 0 Then imgDir = Left(wDir, zp - 1) & "\img\" Else imgDir = wDir & "\img\"
-    If LoadImg("vessel.bmp") Is Nothing Then imgDir = IMG_DIR
+    Logt "OpenWindow: probing imgDir [" & imgDir & "]", False
+    If LoadImg("vessel.bmp") Is Nothing Then
+        Logt "OpenWindow: local imgDir probe failed, fallback to [" & IMG_DIR & "]", False
+        imgDir = IMG_DIR
+    End If
     Set lStream = CreateObject("Scripting.FileSystemObject")
     Set logFile = lStream.CreateTextFile(imgDir + LOG_FILE_NAME, True)
     
@@ -1930,6 +1949,10 @@ On Error Resume Next
             f.Close
             Logt "Scores stored.", False
         End If
+    End If
+    If Err.Number <> 0 Then
+        Logt "SaveState failed: file=[" & imgDir & STATE_FILE_NAME & "], errNo=" & Err.Number & ", err=" & Error, False
+        Err.Clear
     End If
     saved = True
 End Sub
