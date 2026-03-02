@@ -12,7 +12,7 @@ Private Const ICON_WIDTH As Long = 35
 Private Const ICON_HEIGHT As Long = 35
 Private Const MAX_MSG_COUNT As Integer = 12
 
-Public font As Long
+Public font As LongPtr
 Public hwnd As LongPtr
 
 Public fButton As Button
@@ -24,65 +24,65 @@ Public fExp As Explosion
 Public lExp As Explosion
 Public lastSectorNumber As Long
 
-Public shield As Long
-Public ShieldMask As Long
-Public Health As Long
-Public HealthMask As Long
-Public Generator As Long
-Public GeneratorMask As Long
-Public Weapon As Long
-Public WeaponMask As Long
-Public Money As Long
-Public MoneyMask As Long
+Public shield As LongPtr
+Public ShieldMask As LongPtr
+Public Health As LongPtr
+Public HealthMask As LongPtr
+Public Generator As LongPtr
+Public GeneratorMask As LongPtr
+Public Weapon As LongPtr
+Public WeaponMask As LongPtr
+Public Money As LongPtr
+Public MoneyMask As LongPtr
 
-Public gpen As Long
-Public gpen2 As Long
-Public gpen3 As Long
-Public bBrush As Long
-Public gBrush As Long
-Public oldPen As Long
-Public oldPen2 As Long
-Public whitePen As Long
-Public yellowPen As Long
-Public grayPen As Long
-Public greenPen As Long
-Public bluePen As Long
-Public redPen As Long
-Public blueBrush As Long
-Public oldBrush As Long
-Public oldBrush2 As Long
-Public whiteBrush As Long
-Public white1Brush As Long
-Public blackBrush As Long
-Public redBrush As Long
-Public greenBrush As Long
-Public iFont As Long
-Public mFont As Long
-Public mFontU As Long
-Public mFontI As Long
-Public mFontB As Long
-Public mFontBU As Long
-Public mFontBI As Long
-Public mFontIU As Long
-Public mFontBIU As Long
-Public ftFont As Long
-Public osdFont As Long
-Public osdFontSmall As Long
-Public osdFont2 As Long
-Public osdBigFont As Long
-Public smallFont As Long
-Public ccBigFont As Long
-Public tableFont As Long
-Public tableFontNum As Long
-Public tableFontBig As Long
-Public progressBarGradL As Long
-Public progressBarGradH As Long
-Public progressBarGradS As Long
-Public progressBarGradG As Long
+Public gpen As LongPtr
+Public gpen2 As LongPtr
+Public gpen3 As LongPtr
+Public bBrush As LongPtr
+Public gBrush As LongPtr
+Public oldPen As LongPtr
+Public oldPen2 As LongPtr
+Public whitePen As LongPtr
+Public yellowPen As LongPtr
+Public grayPen As LongPtr
+Public greenPen As LongPtr
+Public bluePen As LongPtr
+Public redPen As LongPtr
+Public blueBrush As LongPtr
+Public oldBrush As LongPtr
+Public oldBrush2 As LongPtr
+Public whiteBrush As LongPtr
+Public white1Brush As LongPtr
+Public blackBrush As LongPtr
+Public redBrush As LongPtr
+Public greenBrush As LongPtr
+Public iFont As LongPtr
+Public mFont As LongPtr
+Public mFontU As LongPtr
+Public mFontI As LongPtr
+Public mFontB As LongPtr
+Public mFontBU As LongPtr
+Public mFontBI As LongPtr
+Public mFontIU As LongPtr
+Public mFontBIU As LongPtr
+Public ftFont As LongPtr
+Public osdFont As LongPtr
+Public osdFontSmall As LongPtr
+Public osdFont2 As LongPtr
+Public osdBigFont As LongPtr
+Public smallFont As LongPtr
+Public ccBigFont As LongPtr
+Public tableFont As LongPtr
+Public tableFontNum As LongPtr
+Public tableFontBig As LongPtr
+Public progressBarGradL As LongPtr
+Public progressBarGradH As LongPtr
+Public progressBarGradS As LongPtr
+Public progressBarGradG As LongPtr
 
 Private ci(1 To 5) As Image
 
-Private created() As Long
+Private created() As LongPtr
 Private expOffsets(1 To EXPLOSION_STEPS) As Integer
 Private initialized As Boolean
 Private ast(0 To 3) As Image
@@ -234,7 +234,7 @@ End Sub
 
 Public Sub PreInit()
     Dim n As Integer
-    ReDim Preserve created(0) As Long
+    ReDim Preserve created(0) As LongPtr
 End Sub
 
 Public Sub Init(ByVal wnd As LongPtr)
@@ -351,8 +351,8 @@ Public Sub InitExpOffsets()
 End Sub
 
 
-Public Function RegObject(ByVal hObject As Long)
-    ReDim Preserve created(0 To UBound(created) + 1) As Long
+Public Function RegObject(ByVal hObject As LongPtr) As LongPtr
+    ReDim Preserve created(0 To UBound(created) + 1) As LongPtr
     created(UBound(created)) = hObject
     RegObject = hObject
 End Function
@@ -654,7 +654,7 @@ End Sub
 
 
 Public Function CreateText(ByVal text As String, Optional dur As Integer = 200, Optional stat As Boolean = True, _
-        Optional font As Long = 0, Optional color As Long = &HA0FFFF, Optional shadowColor As Long = &H505050) As FloatText
+        Optional font As LongPtr = 0, Optional color As Long = &HA0FFFF, Optional shadowColor As Long = &H505050) As FloatText
     Dim t As New FloatText
     Set t.parent = Me
     t.text = text

@@ -45,52 +45,52 @@ Public Enum CollType
 End Enum
 
 
-Public Function GetShield() As Long
+Public Function GetShield() As LongPtr
     GetShield = parent.shield
 End Function
 
 
-Public Function GetShieldMask() As Long
+Public Function GetShieldMask() As LongPtr
     GetShieldMask = parent.ShieldMask
 End Function
 
 
-Public Function GetHealth() As Long
+Public Function GetHealth() As LongPtr
     GetHealth = parent.Health
 End Function
 
 
-Public Function GetHealthMask() As Long
+Public Function GetHealthMask() As LongPtr
     GetHealthMask = parent.HealthMask
 End Function
 
 
-Public Function GetGenerator() As Long
+Public Function GetGenerator() As LongPtr
     GetGenerator = parent.Generator
 End Function
 
 
-Public Function GetGeneratorMask() As Long
+Public Function GetGeneratorMask() As LongPtr
     GetGeneratorMask = parent.GeneratorMask
 End Function
 
 
-Public Function GetWeapon() As Long
+Public Function GetWeapon() As LongPtr
     GetWeapon = parent.Weapon
 End Function
 
 
-Public Function GetWeaponMask() As Long
+Public Function GetWeaponMask() As LongPtr
     GetWeaponMask = parent.WeaponMask
 End Function
 
 
-Public Function GetMoney() As Long
+Public Function GetMoney() As LongPtr
     GetMoney = parent.Money
 End Function
 
 
-Public Function GetMoneyMask() As Long
+Public Function GetMoneyMask() As LongPtr
     GetMoneyMask = parent.MoneyMask
 End Function
 
@@ -103,10 +103,10 @@ End Sub
 
 Public Function CreateLetterIcon(ByVal ch As String, ByVal xOffset As Integer, Optional ByVal yOffset As Integer = 2, _
         Optional ByVal midColor As Long = &HFF8080FF, Optional ByVal borderColor As Long = &HFF000030, _
-        Optional ByVal fontColor As Long = &HFFA0A0) As Long
-    Dim dc As Long, Bmp As Long, gdc As Long
-    Dim brush As Long
-    Dim p As Long, grad As Long
+        Optional ByVal fontColor As Long = &HFFA0A0) As LongPtr
+    Dim dc As LongPtr, Bmp As LongPtr, gdc As LongPtr
+    Dim brush As LongPtr
+    Dim p As LongPtr, grad As LongPtr
     
     dc = CreateCompatibleDC(GetDC(parent.hwnd))
     Bmp = CreateCompatibleBitmap(GetDC(parent.hwnd), ICON_WIDTH, ICON_HEIGHT)

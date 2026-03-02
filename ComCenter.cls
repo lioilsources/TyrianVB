@@ -141,7 +141,7 @@ Public Sub CreateCC(ByVal hdc As LongPtr)
 End Sub
 
 
-Public Sub PaintBack(ByVal dc As Long)
+Public Sub PaintBack(ByVal dc As LongPtr)
     SelectObject ccBDC, ccBBmp(backIndex)
     MaskBlt dc, 0, 0, SCR_WIDTH, SCR_HEIGHT, ccBDC, 0, 0, 0, 0, 0, SRCCOPY
     backStep = backStep + 1
@@ -153,7 +153,7 @@ Public Sub PaintBack(ByVal dc As Long)
 End Sub
 
 
-Public Sub Paint(ByVal dc As Long)
+Public Sub Paint(ByVal dc As LongPtr)
     Call SetTextAlign(dc, TA_LEFT)
     Call SelectObject(dc, obj.osdFont)
     Call SText(dc, 200, 164, rocket.name, 2, &HA0D0D0, &H304040)
@@ -231,14 +231,14 @@ Public Sub Paint(ByVal dc As Long)
 End Sub
 
 
-Private Sub PaintWeapon(ByVal dc As Long, ByVal n As Integer, ByVal slot As Integer)
+Private Sub PaintWeapon(ByVal dc As LongPtr, ByVal n As Integer, ByVal slot As Integer)
     If n > nWeapons Then Exit Sub
     Call DevPaint(dc, frontWNames(n - 1), 640 + (slot - 1) * 180, 200)
     Call DevPaint(dc, sideWNames(n - 1), 640 + (slot - 1) * 180, 450)
 End Sub
 
 
-Public Sub DevPaint(ByVal dc As Long, ByVal devName As String, ByVal x As Integer, ByVal y As Integer)
+Public Sub DevPaint(ByVal dc As LongPtr, ByVal devName As String, ByVal x As Integer, ByVal y As Integer)
     Dim dt As DevType
     Dim im As Image
     Set dt = GetDevType(devName)

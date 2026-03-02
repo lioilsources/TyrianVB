@@ -11,9 +11,9 @@ Attribute VB_Exposed = False
 
 Public pict As StdPicture
 Public filename As String
-Public handle As Long
-Public hBitmap As Long
-Public hMask As Long
+Public handle As LongPtr
+Public hBitmap As LongPtr
+Public hMask As LongPtr
 Public width As Long
 Public height As Long
 Public x As Single

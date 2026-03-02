@@ -84,7 +84,7 @@ Private g As LongPtr
 Private gm As LongPtr
 Private hdc As LongPtr
 Private ib As GdiplusStartupInput
-Private worldMatrix As Long
+Private worldMatrix As LongPtr
 Private ltime As Long, t As Long
 Private tmp As Long
 Private grad As Variant
@@ -93,7 +93,7 @@ Private lastCredit As Long
 Private fStream As Variant
 Private fState As String
 Private lStream As Variant
-Private TimerID As Long
+Private TimerID As LongPtr
 Private logFile As Variant
 Private formPresent As Boolean
 
@@ -251,8 +251,8 @@ End Function
 
 
 Public Function CreateMask(ByVal hBitmap As LongPtr, ByVal width As Long, ByVal height As Long, _
-            Optional ByVal maskColor = &HFFFFFFFF) As Long
-    Dim nb As Long, b As Long, clr As Long
+            Optional ByVal maskColor = &HFFFFFFFF) As LongPtr
+    Dim nb As LongPtr, b As LongPtr, clr As Long
     Dim x As Integer, y As Integer
     
     s = GdipCreateBitmapFromHBITMAP(hBitmap, 0, b)
@@ -289,8 +289,8 @@ End Function
 
 
 Public Sub CreateImageMask(i As Image)
-    Dim clr As Long, dc As Long, b As Long
-    Dim hpal As Long
+    Dim clr As Long, dc As LongPtr, b As LongPtr
+    Dim hpal As LongPtr
     Dim x As Integer, y As Integer
     Dim alpha As Long
     Dim dColor As Long
@@ -308,14 +308,14 @@ Public Sub CreateImageMask(i As Image)
             s = GdipBitmapSetPixel(b, x, y, clr)
         Next y
     Next x
-    Dim nb As Long
+    Dim nb As LongPtr
     s = GdipCreateHBITMAPFromBitmap(b, nb, &H0&)
     i.hMask = nb
 End Sub
 
 
 Public Sub SmoothBitmap(hBitmap As LongPtr, ByVal width As Long, ByVal height As Long)
-    Dim clr As Long, dc As Long, tdc As Long, bm As Long, tbm As Long
+    Dim clr As Long, dc As LongPtr, tdc As LongPtr, bm As LongPtr, tbm As LongPtr
     Dim r As Long, g As Long, b As Long
     Dim rs As Long, gs As Long, bs As Long
     Dim pxCount As Integer
@@ -470,9 +470,9 @@ Public Sub DrawButtonIntr(ByVal dc As LongPtr, graphics As LongPtr, b As Button,
 End Sub
 
 
-Public Function CloneBitmap(ByVal bmp As Long, ByVal w As Long, ByVal h As Long) As Long
-    Dim sdc As Long, ddc As Long
-    Dim bm As Long
+Public Function CloneBitmap(ByVal bmp As LongPtr, ByVal w As Long, ByVal h As Long) As LongPtr
+    Dim sdc As LongPtr, ddc As LongPtr
+    Dim bm As LongPtr
     sdc = CreateCompatibleDC(hdc)
     Call SelectObject(sdc, bmp)
     ddc = CreateCompatibleDC(hdc)
@@ -496,8 +496,8 @@ Public Function CopyImage(i As Image, ByVal x As Long, ByVal y As Long, ByVal c 
         
         n.drawInLoop = True
         If ratio <> 1 Then
-            Dim sdc As Long, ddc As Long
-            Dim bm As Long
+            Dim sdc As LongPtr, ddc As LongPtr
+            Dim bm As LongPtr
             Dim nw As Long, nh As Long
             
             nw = Round(ratio * i.width)
@@ -562,9 +562,9 @@ End Function
 
 
 Public Function CreatePBarGrad(ByVal x As Integer, ByVal y As Integer, ByVal w As Integer, _
-        ByVal h As Integer, ByVal color1 As Long, ByVal color2 As Long) As Long
-    Dim p As Long
-    Dim grad As Long
+        ByVal h As Integer, ByVal color1 As Long, ByVal color2 As Long) As LongPtr
+    Dim p As LongPtr
+    Dim grad As LongPtr
     s = GdipCreatePath(FillModeAlternate, p)
     s = GdipAddPathEllipse(p, x - w / 4, y - h, 2 * w, 4 * h)
     s = GdipCreatePathGradientFromPath(p, grad)
@@ -575,15 +575,15 @@ Public Function CreatePBarGrad(ByVal x As Integer, ByVal y As Integer, ByVal w A
 End Function
 
 
-Public Sub DrawProgressBar(ByVal grad As Long, ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal h As Single, _
+Public Sub DrawProgressBar(ByVal grad As LongPtr, ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal h As Single, _
         ByVal pct As Single)
     s = GdipFillRectangle(gm, grad, x, y, w * pct, h)
 End Sub
 
 
-Public Sub ScribeButtonImage(b As Button, ByVal str As String, ByVal font As Long)
-    Dim dc As Long
-    Dim bmp As Long
+Public Sub ScribeButtonImage(b As Button, ByVal str As String, ByVal font As LongPtr)
+    Dim dc As LongPtr
+    Dim bmp As LongPtr
     dc = CreateCompatibleDC(hdc)
     Call SetTextAlign(dc, TA_CENTER Or TA_BASELINE)
     Call SelectObject(dc, font)
@@ -604,8 +604,8 @@ Public Sub ScribeButtonImage(b As Button, ByVal str As String, ByVal font As Lon
 End Sub
 
 
-Public Sub CreateButtonImages(b As Button, ByVal w As Integer, ByVal h As Integer, ByVal caption As String, ByVal font As Long)
-    Dim dc As Long
+Public Sub CreateButtonImages(b As Button, ByVal w As Integer, ByVal h As Integer, ByVal caption As String, ByVal font As LongPtr)
+    Dim dc As LongPtr
     b.w = w
     b.h = h
     b.x2 = b.x + w
@@ -646,7 +646,7 @@ End Sub
 
 Private Function CreateTexture(ByVal i As Image) As Texture
     Dim t As New Texture
-    Dim tex As Long
+    Dim tex As LongPtr
     s = GdipCreateTexture(i.handle, WrapModeClamp, tex)
     s = GdipTranslateTextureTransform(tex, -i.width / 2, -i.height / 2, MatrixOrderAppend)
     t.tex = tex
@@ -660,7 +660,7 @@ End Function
 
 
 Private Sub PlaceTexture(t As Texture)
-    Dim mat As Long, tex As Long
+    Dim mat As LongPtr, tex As LongPtr
     tex = t.tex
     s = GdipSaveGraphics(g, state)
     s = GdipCreateMatrix(mat)
@@ -673,7 +673,7 @@ End Sub
 
 
 Private Function CreateOSD(Optional dummy As Boolean = False) As Long
-    Dim p As Long, grad As Long, gmb As Long, dc As Long, b As Long, pen As Long
+    Dim p As LongPtr, grad As LongPtr, gmb As LongPtr, dc As LongPtr, b As LongPtr, pen As LongPtr
     Dim x As Integer, y As Integer
     dc = CreateCompatibleDC(hdc)
     osdBBmp = CreateCompatibleBitmap(hdc, OSD_WIDTH, OSD_HEIGHT)
@@ -846,7 +846,7 @@ Private Sub GenerateBeamGrad(dt As DevType)
     Dim step As Long
     Dim i As Integer
     Dim c As Long
-    Dim p As Long
+    Dim p As LongPtr
     
     steps = Int(dt.seqs / 2)
     step = Round(256 / steps)
@@ -894,7 +894,7 @@ Private Sub WPaint()
     Static ft As FloatText
     Static x As Integer
     Static t As Variant
-    Static tex As Long
+    Static tex As LongPtr
     
     BeginPath BDC
     SelectObject BDC, obj.blackBrush
@@ -1365,7 +1365,7 @@ Public Static Sub levelAction(ByVal dummy As Boolean)
 End Sub
 
 ' -------
-Private Function TimerProc() As Long
+Private Function TimerProc() As LongPtr
     Logt "Timer"
     exiting = True
 End Function
@@ -1821,7 +1821,7 @@ Public Sub OpenWindow(Optional dummy As Boolean = False)
     Static wcex As WNDCLASSEX
     Static wMessage As msg
     Dim zp As Integer
-    Dim dc As Long
+    Dim dc As LongPtr
     Dim a As Integer
     
     running = True
@@ -1987,7 +1987,7 @@ End Sub
 
 
 Public Function MakeFont(fontName As String, ByVal height As Long, ByVal width As Long, _
-        Optional fontStyle As Byte = 0, Optional landscape As Boolean = False) As Long
+        Optional fontStyle As Byte = 0, Optional landscape As Boolean = False) As LongPtr
     Dim f As LOGFONT
     StrToByteArray fontName, f.lfFaceName
     f.lfHeight = Round(height)
@@ -2004,7 +2004,7 @@ Public Function MakeFont(fontName As String, ByVal height As Long, ByVal width A
 End Function
 
 
-Private Function FuncPtr(ByVal p As Long) As Long
+Private Function FuncPtr(ByVal p As LongPtr) As LongPtr
     FuncPtr = p
 End Function
 

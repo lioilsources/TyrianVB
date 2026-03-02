@@ -9,7 +9,7 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 ' Class Texture
 
-Public tex As Long
+Public tex As LongPtr
 Public x As Single
 Public y As Single
 Public w As Single

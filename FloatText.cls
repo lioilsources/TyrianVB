@@ -11,7 +11,7 @@ Attribute VB_Exposed = False
 
 Public text As String
 Public trace As Path
-Public font As Long
+Public font As LongPtr
 Public color As Long
 Public shadowColor As Long
 Public stationary As Boolean
