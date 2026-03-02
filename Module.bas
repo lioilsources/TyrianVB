@@ -218,7 +218,7 @@ Public Sub HrzBox(ByVal dc As LongPtr, ByVal x As Long, ByVal y As Long, ByVal w
 End Sub
 
 
-Public Function CreateImage(ByVal hBitmap As Long, ByVal x As Long, ByVal y As Long, ByVal w As Long, ByVal h As Long) As Image
+Public Function CreateImage(ByVal hBitmap As LongPtr, ByVal x As Long, ByVal y As Long, ByVal w As Long, ByVal h As Long) As Image
     Dim i As New Image
     i.hBitmap = hBitmap
     i.filename = "#" & hBitmap
@@ -250,7 +250,7 @@ Public Function CloneImage(orig As Image) As Image
 End Function
 
 
-Public Function CreateMask(ByVal hBitmap As Long, ByVal width As Long, ByVal height As Long, _
+Public Function CreateMask(ByVal hBitmap As LongPtr, ByVal width As Long, ByVal height As Long, _
             Optional ByVal maskColor = &HFFFFFFFF) As Long
     Dim nb As Long, b As Long, clr As Long
     Dim x As Integer, y As Integer
@@ -314,7 +314,7 @@ Public Sub CreateImageMask(i As Image)
 End Sub
 
 
-Public Sub SmoothBitmap(hBitmap As Long, ByVal width As Long, ByVal height As Long)
+Public Sub SmoothBitmap(hBitmap As LongPtr, ByVal width As Long, ByVal height As Long)
     Dim clr As Long, dc As Long, tdc As Long, bm As Long, tbm As Long
     Dim r As Long, g As Long, b As Long
     Dim rs As Long, gs As Long, bs As Long
@@ -1388,7 +1388,7 @@ End Function
 ' ----------------------------------------------------------------------------------------------------------------------
 ' ------------------------------------------[    W I N D O W   P R O C    ]---------------------------------------------
 ' ----------------------------------------------------------------------------------------------------------------------
-Private Function WindowProc(ByVal hwnd As Long, ByVal uMsg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
+Private Function WindowProc(ByVal hwnd As LongPtr, ByVal uMsg As LongPtr, ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr
 On Error GoTo err
     Static sta As String
     Static dev As Device

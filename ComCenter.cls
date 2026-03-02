@@ -14,8 +14,8 @@ Public nWeapons As Integer                      ' available weapons, now 4 (set 
 Public nPages As Integer
 Public pageSize As Integer
 
-Private ccBDC As Long                           ' command center background DC
-Private ccBBmp(1 To CC_COLOR_COUNT) As Long     ' command center background Bitmap
+Private ccBDC As LongPtr                           ' command center background DC
+Private ccBBmp(1 To CC_COLOR_COUNT) As LongPtr     ' command center background Bitmap
 Private scoreStrCache(1 To 10) As String        ' string score representation
 Private frontWNames As Variant
 Private sideWNames As Variant
@@ -24,17 +24,17 @@ Private backStep As Integer
 Private backStepDir As Integer
 
 
-Public Sub CreateCC(ByVal hdc As Long)
-    Dim p As Long, grad As Long, gmb As Long, dc As Long
-    Dim p1 As Long, p2 As Long, p3 As Long
-    Dim b As Long
+Public Sub CreateCC(ByVal hdc As LongPtr)
+    Dim p As LongPtr, grad As LongPtr, gmb As LongPtr, dc As LongPtr
+    Dim p1 As LongPtr, p2 As LongPtr, p3 As LongPtr
+    Dim b As LongPtr
     Dim xd As Single
     Dim yd As Single
     Dim cv As Long
     Dim clrShift As Double
     Dim clt As Long
-    Dim bmp As Long
-    Dim tdc As Long
+    Dim bmp As LongPtr
+    Dim tdc As LongPtr
     
     backIndex = 1
     backStepDir = 1
