@@ -13,7 +13,11 @@ Private head As LibItem
 Private tail As LibItem
 
 
-Public Sub AddItem(ByVal name As String, i As Image, Optional draw As Boolean = False, Optional CreateMask As Boolean = True)
+Public Sub AddItem(ByVal name As String, ByVal i As Image, Optional draw As Boolean = False, Optional CreateMask As Boolean = True)
+    If i Is Nothing Then
+        Logt "AddItem skipped: [" & name & "] has no image object", False
+        Exit Sub
+    End If
     Dim it As New LibItem
     it.name = name
     Set it.img = i

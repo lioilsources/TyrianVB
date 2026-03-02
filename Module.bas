@@ -95,7 +95,6 @@ Private fState As String
 Private lStream As Variant
 Private TimerID As LongPtr
 Private logFile As Variant
-Private formPresent As Boolean
 
 Public imgLib As New Library
 Public rocket As New Vessel
@@ -393,7 +392,7 @@ lerr:
     Dim es As String
     es = Error
     es = Replace(es, "'", "")
-    Logt "LoadImg: " & es, False
+    Logt "LoadImg failed: file=[" & imgDir & name & "], errNo=" & Err.Number & ", err=" & es, False
     Set LoadImg = Nothing
 End Function
 
@@ -404,6 +403,11 @@ Public Function GdipLoadImg(ByVal name As String, Optional ByVal x As Long = -1,
     Dim val As Long
     i.filename = name
     s = GdipLoadImageFromFile(StrConv(imgDir & name, vbUnicode), val)
+    If s <> GpStatus.Ok Then
+        Logt "GdipLoadImg failed: file=[" & imgDir & name & "], status=" & status(s), False
+        Set GdipLoadImg = Nothing
+        Exit Function
+    End If
     i.handle = val
     If x >= 0 Then i.x = x
     If y >= 0 Then i.y = y
@@ -1378,7 +1382,12 @@ Private Function TryAdd(ByVal fname As String, ByVal itemName As String, ByVal a
     cmask = False
     Set ti = LoadImg(fname)
     If ti Is Nothing Then
+        Logt "TryAdd fallback: " & itemName & " uses [" & altItemName & "]", False
         Set ti = CopyImage(imgLib.GetItem(altItemName), -200, -200, 0, ratio, True, layNum)
+        If ti Is Nothing Then
+            Logt "TryAdd failed: missing both [" & fname & "] and fallback [" & altItemName & "]", False
+            Exit Function
+        End If
     Else
         cmask = True
     End If
@@ -1401,6 +1410,7 @@ On Error GoTo err
             Dim timg As Image
             
             sta = "WM_CREATE"
+            Logt "WM_CREATE: begin", False
             SetFormLabel "Starting (Init)"
             test = False
             hdc = GetDC(hwnd)
@@ -1420,27 +1430,38 @@ On Error GoTo err
             Dim f As Variant
             Dim sz As Long
             SetFormLabel "Starting (File)"
+            Logt "WM_CREATE: state file check [" & imgDir & STATE_FILE_NAME & "]", False
             Set fStream = CreateObject("Scripting.FileSystemObject")
-            Set f = fStream.GetFile(imgDir + STATE_FILE_NAME)
-            sz = f.size
-            Set f = fStream.OpenTextFile(imgDir + STATE_FILE_NAME, 1, False)
-            If Not f Is Nothing Then
-                fState = f.Read(sz)
-                f.Close
-                If Len(fState) > 0 Then ParseFileState (fState)
+            If fStream.FileExists(imgDir + STATE_FILE_NAME) Then
+                Set f = fStream.GetFile(imgDir + STATE_FILE_NAME)
+                sz = f.size
+                Logt "WM_CREATE: state file found, size=" & sz, False
+                Set f = fStream.OpenTextFile(imgDir + STATE_FILE_NAME, 1, False)
+                If Not f Is Nothing Then
+                    fState = f.Read(sz)
+                    f.Close
+                    Logt "WM_CREATE: state loaded, chars=" & Len(fState), False
+                    If Len(fState) > 0 Then ParseFileState (fState)
+                End If
+            Else
+                Logt "WM_CREATE: state file not found, continuing with defaults", False
             End If
             
             ib.GdiplusVersion = 2
             ib.SuppressBackgroundThread = 0
             ib.SuppressExternalCodecs = 0
             s = GdiplusStartup(token, ib, 0)
+            Logt "WM_CREATE: GdiplusStartup status=" & status(s), False
             Call SetStretchBltMode(hdc, STRETCH_HALFTONE)
             s = GdipCreateFromHDC(hdc, g)
+            Logt "WM_CREATE: GdipCreateFromHDC(hdc) status=" & status(s), False
             s = GdipSetCompositingQuality(g, QualityMode.QualityModeHigh)
+            Logt "WM_CREATE: GdipSetCompositingQuality status=" & status(s), False
             Call obj.Init(hwnd)
             
             sta = "WM_CREATE: Load"
             SetFormLabel "Starting (Load images)"
+            Logt "WM_CREATE: loading image assets", False
             Call imgLib.AddItem("btnCloseDown", GdipLoadImg("btn_close_down.png"))
             Call imgLib.AddItem("btnCloseUp", GdipLoadImg("btn_close_up.png"))
             Call imgLib.AddItem("btnCloseOver", GdipLoadImg("btn_close_over.png"))
@@ -1480,6 +1501,7 @@ On Error GoTo err
             ' create star field
             sta = "WM_CREATE: Stars"
             SetFormLabel "Starting (Stars)"
+            Logt "WM_CREATE: generating stars (" & STAR_COUNT & ")", False
             Call imgLib.AddItem("star", LoadImg("star.bmp", -1, -1))
             Dim cma As Double
             cma = 0
@@ -1502,6 +1524,7 @@ On Error GoTo err
             Next n
             
             sta = "WM_CREATE: Explosions"
+            Logt "WM_CREATE: generating explosions", False
             For n = 1 To EXPLOSION_VAR
                 Set timg = imgLib.GetItem("explo" & n)
                 For m = 1 To EXPLOSION_STEPS
@@ -1511,6 +1534,7 @@ On Error GoTo err
             obj.InitExpOffsets
             
             sta = "WM_CREATE: Init graphics"
+            Logt "WM_CREATE: init screen buffers", False
             ltime = timeGetTime()
             i = 1
             d = 1
@@ -1537,6 +1561,7 @@ On Error GoTo err
             Call timeBeginPeriod(1)
             
             sta = "WM_CREATE: Objects"
+            Logt "WM_CREATE: creating gameplay objects/buttons", False
             
             Call GenerateBeamGrad(cCenter.GetDevType("Laser"))
             Set timg = obj.GetAsteroid
@@ -1827,10 +1852,6 @@ Public Sub OpenWindow(Optional dummy As Boolean = False)
     running = True
     exiting = False
     scoresChanged = False
-    formPresent = False
-    If Not Forms Is Nothing Then
-        If Not Forms!SplitDatabase Is Nothing Then formPresent = True
-    End If
     dc = GetDC(0)
     WND_WIDTH = GetDeviceCaps(dc, 8)    ' screen width
     WND_HEIGHT = GetDeviceCaps(dc, 10)  ' screen height
@@ -1880,7 +1901,6 @@ Public Sub OpenWindow(Optional dummy As Boolean = False)
     
     If Not test Then SaveState
     DeleteObjects
-    If formPresent Then Forms!SplitDatabase.Label.Visible = False
     running = False
     pause = False
     Logt "Exit", True
@@ -2156,10 +2176,7 @@ End Function
 
 
 Public Sub SetFormLabel(ByVal str As String)
-    If formPresent Then
-        Forms!SplitDatabase.Label.caption = str
-        Forms!SplitDatabase.rePaint
-    End If
+    ' SplitDatabase form integration removed.
 End Sub
 
 'End of file

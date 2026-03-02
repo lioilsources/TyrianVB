@@ -352,18 +352,38 @@ End Sub
 
 
 Public Function RegObject(ByVal hObject As LongPtr) As LongPtr
-    ReDim Preserve created(0 To UBound(created) + 1) As LongPtr
-    created(UBound(created)) = hObject
+    Dim ub As Long
+    On Error Resume Next
+    ub = UBound(created)
+    If Err.Number <> 0 Then
+        Err.Clear
+        ReDim created(0 To 1) As LongPtr
+        created(1) = hObject
+        RegObject = hObject
+        On Error GoTo 0
+        Exit Function
+    End If
+    On Error GoTo 0
+    ReDim Preserve created(0 To ub + 1) As LongPtr
+    created(ub + 1) = hObject
     RegObject = hObject
 End Function
 
 
 Public Sub Destroy()
-    If UBound(created) > 0 Then
-        For i = 1 To UBound(created)
-            Call DeleteObject(created(i))
-        Next i
+    Dim ub As Long
+    On Error Resume Next
+    ub = UBound(created)
+    If Err.Number = 0 Then
+        If ub > 0 Then
+            For i = 1 To ub
+                Call DeleteObject(created(i))
+            Next i
+        End If
+    Else
+        Err.Clear
     End If
+    On Error GoTo 0
     Call DeleteObject(shield)
     Call DeleteObject(ShieldMask)
     Call DeleteObject(Health)
