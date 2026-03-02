@@ -401,10 +401,11 @@ End Function
 Public Function GdipLoadImg(ByVal name As String, Optional ByVal x As Long = -1, Optional ByVal y As Long = -1, _
             Optional ByVal w As Long = -1, Optional ByVal h As Long = -1) As Image
     Dim i As New Image
+    Dim hImg As LongPtr
     Dim val As Long
     i.filename = name
-    s = GdipLoadImageFromFile(StrConv(imgDir & name, vbUnicode), val)
-    i.handle = val
+    s = GdipLoadImageFromFile(StrConv(imgDir & name, vbUnicode), hImg)
+    i.handle = hImg
     If x >= 0 Then i.x = x
     If y >= 0 Then i.y = y
     If w >= 0 Then val = w Else s = GdipGetImageWidth(i.handle, val)
