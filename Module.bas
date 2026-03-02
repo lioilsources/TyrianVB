@@ -1777,7 +1777,7 @@ On Error GoTo err
                                 If wParam = 190 Then
                                     rocket.pilotName = rocket.pilotName + Chr(46)
                                 Else
-                                    rocket.pilotName = rocket.pilotName + Chr(wParam)
+                                    rocket.pilotName = rocket.pilotName + Chr(CLng(wParam))
                                 End If
                             End If
                         End If
