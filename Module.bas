@@ -168,14 +168,14 @@ Public Sub ShowCur(Optional dummy As Boolean = False)
 End Sub
 
 
-Public Sub text(ByVal dc As Long, ByVal x As Long, ByVal y As Long, ByVal str As String, _
+Public Sub text(ByVal dc As LongPtr, ByVal x As Long, ByVal y As Long, ByVal str As String, _
         Optional ByVal fColor As Long = &HFFFFFF)
     Call SetTextColor(dc, fColor)
     Call TextOut(dc, x, y, str, Len(str))
 End Sub
 
 
-Public Sub SText(ByVal dc As Long, ByVal x As Long, ByVal y As Long, ByVal str As String, Optional shift As Long = 2, _
+Public Sub SText(ByVal dc As LongPtr, ByVal x As Long, ByVal y As Long, ByVal str As String, Optional shift As Long = 2, _
         Optional ByVal fColor As Long = &HF0E0E0, Optional ByVal bColor As Long = &H505050)
     Call SetTextColor(dc, bColor)
     Call TextOut(dc, x + shift, y + shift, str, Len(str))
@@ -184,7 +184,7 @@ Public Sub SText(ByVal dc As Long, ByVal x As Long, ByVal y As Long, ByVal str A
 End Sub
 
 
-Public Sub ButtonBox(ByVal dc As Long, ByVal x As Long, ByVal y As Long, ByVal w As Long, ByVal h As Long, _
+Public Sub ButtonBox(ByVal dc As LongPtr, ByVal x As Long, ByVal y As Long, ByVal w As Long, ByVal h As Long, _
         ByVal color1 As Long, ByVal color2 As Long, ByVal color3 As Long)
     Dim tc1 As Long, tc2 As Long, tc3 As Long
     tc1 = CreatePen(PS_SOLID, 1, color1)
@@ -207,7 +207,7 @@ Public Sub ButtonBox(ByVal dc As Long, ByVal x As Long, ByVal y As Long, ByVal w
 End Sub
 
 
-Public Sub HrzBox(ByVal dc As Long, ByVal x As Long, ByVal y As Long, ByVal w As Long, ByVal h As Long)
+Public Sub HrzBox(ByVal dc As LongPtr, ByVal x As Long, ByVal y As Long, ByVal w As Long, ByVal h As Long)
     Call BeginPath(dc)
     Call MoveToEx(dc, x, y, 0)
     Call LineTo(dc, x + w, y)
@@ -418,7 +418,7 @@ Public Function GdipLoadImg(ByVal name As String, Optional ByVal x As Long = -1,
 End Function
 
 
-Public Sub DrawImage(ByVal dc As Long, graphics As Long, i As Image, Optional ByVal x As Integer = -1000, _
+Public Sub DrawImage(ByVal dc As LongPtr, graphics As LongPtr, i As Image, Optional ByVal x As Integer = -1000, _
         Optional ByVal y As Integer = -1000)
 
     If x > -1000 Then i.x = x
@@ -439,7 +439,7 @@ Public Sub DrawImage(ByVal dc As Long, graphics As Long, i As Image, Optional By
 End Sub
 
 
-Public Sub DrawButton(ByVal dc As Long, graphics As Long, b As Button)
+Public Sub DrawButton(ByVal dc As LongPtr, graphics As LongPtr, b As Button)
     Static bx As Integer
     Static a As Integer
     
@@ -457,7 +457,7 @@ Public Sub DrawButton(ByVal dc As Long, graphics As Long, b As Button)
 End Sub
 
 
-Public Sub DrawButtonIntr(ByVal dc As Long, graphics As Long, b As Button, ByVal bx As Integer, ByVal by As Integer)
+Public Sub DrawButtonIntr(ByVal dc As LongPtr, graphics As LongPtr, b As Button, ByVal bx As Integer, ByVal by As Integer)
     If b.over Then
         If b.pressed Then
             Call DrawImage(dc, graphics, b.imgDown, bx, by)
