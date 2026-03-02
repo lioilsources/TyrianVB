@@ -13,7 +13,7 @@ Private Const ICON_HEIGHT As Long = 35
 Private Const MAX_MSG_COUNT As Integer = 12
 
 Public font As Long
-Public hwnd As Long
+Public hwnd As LongPtr
 
 Public fButton As Button
 Public fColl As Collectable
@@ -237,7 +237,7 @@ Public Sub PreInit()
     ReDim Preserve created(0) As Long
 End Sub
 
-Public Sub Init(ByVal wnd As Long)
+Public Sub Init(ByVal wnd As LongPtr)
     hwnd = wnd
     font = f
     If Not initialized Then
