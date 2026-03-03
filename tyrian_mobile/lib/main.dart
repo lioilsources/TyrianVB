@@ -10,10 +10,10 @@ import 'services/save_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Force landscape for gameplay
+  // Force portrait for gameplay
   SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
   ]);
   // Immersive mode
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
