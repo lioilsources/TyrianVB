@@ -32,6 +32,9 @@ class Fleet extends Component with HasGameReference<TyrianGame> {
   // Weapon for enemies to fire
   Device? weapon;
 
+  // Extra path appended to each hostile's path on spawn
+  PathSystem? extraPath;
+
   // Alternative path params for replacement
   int altParam1 = 0;
   int altParam2 = 0;
@@ -44,7 +47,6 @@ class Fleet extends Component with HasGameReference<TyrianGame> {
   // Internal state
   double _stepTimer = 0;
   int _spawned = 0;
-  int _deleted = 0;
 
   double get triggerInterval => triggerSteps * config.frameDelay / 1000.0;
 
@@ -74,16 +76,6 @@ class Fleet extends Component with HasGameReference<TyrianGame> {
       _spawned++;
     }
 
-    // Update bounding box
-    _updateBounds();
-
-    // Check if fleet is depleted
-    if (_deleted >= count) {
-      // All enemies dead — deactivate
-      active = false;
-      _spawnBonus();
-    }
-
     // Clean up dead hostiles
     hostiles.removeWhere((h) {
       if (h.isDead) {
@@ -92,19 +84,39 @@ class Fleet extends Component with HasGameReference<TyrianGame> {
       }
       return false;
     });
+
+    // Update bounding box
+    _updateBounds();
+
+    // Check if fleet is depleted (all spawned, none alive)
+    if (_spawned >= count && hostiles.isEmpty) {
+      active = false;
+      _spawnBonus();
+    }
+  }
+
+  /// Set extra path appended to each hostile's main path (VB6 Fleet.SetExtraPath)
+  PathSystem setExtraPath(PathSystem p) {
+    extraPath = p;
+    return p;
   }
 
   void _spawnHostile() {
     final hpMax = Hostile.getHpMax(hostType);
+    final clonedPath = path.clone();
+    clonedPath.onExit = defaultPathAction;
+    if (extraPath != null) {
+      clonedPath.addPath(extraPath!);
+    }
     final h = Hostile(
       caption: Hostile.hostCaption(hostType),
       id: _spawned,
       hostType: hostType,
       hp: hpMax,
       hpMax: hpMax,
-      trace: path.clone(),
+      trace: clonedPath,
     );
-    h.trace!.onExit = defaultPathAction;
+    h.parentFleet = this;
     hostiles.add(h);
     game.world.add(h);
   }
@@ -126,7 +138,6 @@ class Fleet extends Component with HasGameReference<TyrianGame> {
 
   void onHostileKilled(Hostile h, TyrianGame gameInstance) {
     kills++;
-    _deleted++;
 
     // Add score
     gameInstance.vessel.score += h.hpMax;

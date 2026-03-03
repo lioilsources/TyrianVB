@@ -25,6 +25,8 @@ class Structure extends PositionComponent
   int hit = 0;
   int collisionDmg = 20;
   PathSystem? trace;
+  double enterTime = 0;
+  bool activated = false;
 
   double get x2 => position.x + size.x;
   double get y2 => position.y + size.y;
@@ -93,7 +95,6 @@ class Structure extends PositionComponent
   }
 
   void takeDamage(int dmg, TyrianGame gameInstance) {
-    if (structType == StructType.asteroid) return; // Invulnerable
     hp -= dmg;
     if (hit == 0) hit = 2;
     if (hp <= 0) {

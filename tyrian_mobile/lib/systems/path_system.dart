@@ -104,9 +104,17 @@ class PathSystem {
     }
   }
 
-  /// Append another path's nodes
+  /// Jump to the last node (VB6 Path.Finish)
+  void finish() {
+    if (nodes.isNotEmpty) {
+      currentIndex = nodes.length - 1;
+    }
+  }
+
+  /// Append another path's nodes (onExit from appended path overrides)
   void addPath(PathSystem other) {
     nodes.addAll(other.nodes);
+    onExit = other.onExit;
   }
 
   /// Make path cyclic (last -> first)

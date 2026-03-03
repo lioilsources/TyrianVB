@@ -1,8 +1,10 @@
+import 'dart:math';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import '../game/tyrian_game.dart';
 import '../systems/path_system.dart';
+import '../systems/fleet.dart';
 import '../systems/device.dart';
 import '../services/asset_library.dart';
 
@@ -36,6 +38,7 @@ class Hostile extends PositionComponent with HasGameReference<TyrianGame> {
   int collisionDmg = 10;
   PathSystem? trace;
   Device? weapon;
+  Fleet? parentFleet;
 
   bool get isDead => hp <= 0;
 
@@ -149,10 +152,46 @@ class Hostile extends PositionComponent with HasGameReference<TyrianGame> {
       case PathAction.noop:
         break;
       case PathAction.freezeFleet:
-        break;
+        if (parentFleet != null) {
+          for (final ho in parentFleet!.hostiles) {
+            if (ho.isDead || ho.trace == null) continue;
+            ho.trace!.finish();
+            final last = ho.trace!.current;
+            if (last != null) {
+              ho.position.setValues(last.x, last.y);
+            }
+            ho.trace!.onExit = PathAction.stay;
+          }
+        }
       case PathAction.replacePath:
-        break;
+        if (parentFleet != null) {
+          for (final ho in parentFleet!.hostiles) {
+            if (ho.isDead) continue;
+            ho.cyclePath(
+              parentFleet!.altParam1,
+              parentFleet!.altParam2,
+              parentFleet!.altParam3,
+              parentFleet!.altParam4 ?? PathType.cosinus,
+            );
+          }
+        }
     }
+  }
+
+  /// VB6 Hostile.CyclePath — create oscillating out-and-back cyclic path
+  void cyclePath(int steps, int dx, int dy, PathType pt) {
+    final x = trace?.current?.x ?? position.x;
+    final y = trace?.current?.y ?? position.y;
+    final ampl = sqrt((dx * dx + dy * dy).toDouble());
+    final newTrace = PathSystem();
+    newTrace.generate(steps, x, y, x + dx, y + dy, pt,
+        amplitude: ampl, cycles: 1);
+    final returnPath = PathSystem();
+    returnPath.generate(steps, x + dx, y + dy, x, y, pt,
+        amplitude: -ampl, cycles: 1);
+    newTrace.addPath(returnPath);
+    newTrace.encycle();
+    trace = newTrace;
   }
 
   void _checkPlayerCollision() {
