@@ -1,4 +1,5 @@
 import 'package:flame/camera.dart';
+import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
@@ -18,13 +19,7 @@ enum GameState { comCenter, playing, paused, gameOver }
 
 class TyrianGame extends FlameGame
     with DragCallbacks, TapCallbacks, HasCollisionDetection {
-  TyrianGame()
-      : super(
-          camera: CameraComponent.withFixedResolution(
-            width: config.gameWidth,
-            height: config.gameHeight,
-          ),
-        );
+  TyrianGame();
 
   late Starfield starfield;
   late Vessel vessel;
@@ -55,6 +50,15 @@ class TyrianGame extends FlameGame
 
   @override
   Future<void> onLoad() async {
+    // Fill screen: keep width=600, adjust height for device aspect ratio
+    config.gameHeight = config.gameWidth * (size.y / size.x);
+
+    camera.viewport = FixedResolutionViewport(
+      resolution: Vector2(config.gameWidth, config.gameHeight),
+    );
+    camera.viewfinder.anchor = Anchor.topLeft;
+    camera.viewfinder.position = Vector2.zero();
+
     await AssetLibrary.instance.loadAll();
 
     starfield = Starfield();
@@ -166,30 +170,38 @@ class TyrianGame extends FlameGame
     onGameOver?.call();
   }
 
-  // Touch input
-  Vector2? _touchPosition;
+  // Touch input — delta-based so finger and vessel move in sync
+  Vector2? _prevDragPos;
 
   @override
   void onDragStart(DragStartEvent event) {
     super.onDragStart(event);
     if (state != GameState.playing) return;
-    _touchPosition = event.canvasPosition;
+    _prevDragPos = event.canvasPosition.clone();
     vessel.fire = true;
   }
 
   @override
   void onDragUpdate(DragUpdateEvent event) {
     super.onDragUpdate(event);
-    if (state != GameState.playing) return;
-    _touchPosition = event.canvasEndPosition;
-    _updateVesselPosition();
+    if (state != GameState.playing || _prevDragPos == null) return;
+    final pos = event.canvasEndPosition;
+    final delta = pos - _prevDragPos!;
+    _prevDragPos = pos.clone();
+
+    // Scale screen-pixel delta to game coordinates
+    final scale = config.gameWidth / size.x;
+    vessel.adjustPosition(
+      vessel.position.x + delta.x * scale,
+      vessel.position.y + delta.y * scale,
+    );
   }
 
   @override
   void onDragEnd(DragEndEvent event) {
     super.onDragEnd(event);
     if (state != GameState.playing) return;
-    _touchPosition = null;
+    _prevDragPos = null;
     vessel.fire = false;
   }
 
@@ -198,14 +210,6 @@ class TyrianGame extends FlameGame
     super.onTapDown(event);
     if (state != GameState.playing) return;
     vessel.fire = !vessel.fire; // Toggle auto-fire
-  }
-
-  void _updateVesselPosition() {
-    if (_touchPosition == null) return;
-    // Use canvas position directly (game coordinates)
-    final pos = _touchPosition!;
-    // Offset ship above finger so it's visible
-    vessel.adjustPosition(pos.x, pos.y - 60);
   }
 
   // Spawn helpers used by Sector/Fleet

@@ -57,7 +57,7 @@ class Vessel extends PositionComponent
   }
 
   void resetPosition() {
-    position.setValues(config.gameWidth / 2, config.gameHeight - 80);
+    position.setValues(config.gameWidth / 2, config.gameHeight * 0.75);
   }
 
   void resetVessel() {

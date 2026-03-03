@@ -18,7 +18,7 @@ const double osdWidth = 280.0;
 
 // Logical game resolution (play area only)
 const double gameWidth = scrWidth;
-const double gameHeight = scrHeight;
+double gameHeight = scrHeight; // mutable, set at runtime for device aspect ratio
 
 // Font style flags (from VBA)
 const int fontBold = 1;
