@@ -1,7 +1,9 @@
+import 'package:flame/camera.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
+import 'game_config.dart' as config;
 import '../rendering/starfield.dart';
 import '../entities/vessel.dart';
 import '../entities/explosion.dart';
@@ -16,6 +18,14 @@ enum GameState { comCenter, playing, paused, gameOver }
 
 class TyrianGame extends FlameGame
     with DragCallbacks, TapCallbacks, HasCollisionDetection {
+  TyrianGame()
+      : super(
+          camera: CameraComponent.withFixedResolution(
+            width: config.gameWidth,
+            height: config.gameHeight,
+          ),
+        );
+
   late Starfield starfield;
   late Vessel vessel;
   late BeamRenderer beamRenderer;

@@ -35,27 +35,33 @@ void main() async {
 
     try {
       final bytes = file.readAsBytesSync();
-      final image = img.decodeBmp(bytes);
-      if (image == null) {
+      final decoded = img.decodeBmp(bytes);
+      if (decoded == null) {
         print('  Failed to decode $name');
         continue;
       }
 
-      // Make magenta (255,0,255) and pure black (0,0,0) transparent
-      for (int y = 0; y < image.height; y++) {
-        for (int x = 0; x < image.width; x++) {
-          final pixel = image.getPixel(x, y);
+      // Ensure 4-channel RGBA image (BMP decodes as 3-channel RGB)
+      final image = img.Image(
+        width: decoded.width,
+        height: decoded.height,
+        numChannels: 4,
+      );
+
+      // Copy pixels and apply transparency mask
+      for (int y = 0; y < decoded.height; y++) {
+        for (int x = 0; x < decoded.width; x++) {
+          final pixel = decoded.getPixel(x, y);
           final r = pixel.r.toInt();
           final g = pixel.g.toInt();
           final b = pixel.b.toInt();
 
-          // Magenta mask color
-          if (r >= 250 && g <= 5 && b >= 250) {
+          // Magenta mask color or pure black -> transparent
+          if ((r >= 250 && g <= 5 && b >= 250) ||
+              (r == 0 && g == 0 && b == 0)) {
             image.setPixelRgba(x, y, 0, 0, 0, 0);
-          }
-          // Pure black (often background)
-          else if (r == 0 && g == 0 && b == 0) {
-            image.setPixelRgba(x, y, 0, 0, 0, 0);
+          } else {
+            image.setPixelRgba(x, y, r, g, b, 255);
           }
         }
       }

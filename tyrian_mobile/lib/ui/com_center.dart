@@ -45,12 +45,13 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
           children: [
             _buildHeader(),
             Expanded(
-              child: Row(
+              child: Column(
                 children: [
-                  // Left: Ship stats
-                  Expanded(flex: 2, child: _buildShipStats()),
-                  // Right: Weapon shop
-                  Expanded(flex: 3, child: _buildWeaponShop()),
+                  // Top: Ship stats (compact)
+                  _buildShipStats(),
+                  const Divider(color: Colors.white24, height: 1),
+                  // Bottom: Weapon shop
+                  Expanded(child: _buildWeaponShop()),
                 ],
               ),
             ),
@@ -91,84 +92,91 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
 
   Widget _buildShipStats() {
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Pilot name
-          TextField(
-            controller: TextEditingController(text: vessel.pilotName),
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            decoration: const InputDecoration(
-              labelText: 'Pilot Name',
-              labelStyle: TextStyle(color: Colors.white54),
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24),
+          // Pilot name + stats row
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: TextEditingController(text: vessel.pilotName),
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'Pilot',
+                    labelStyle: TextStyle(color: Colors.white54, fontSize: 12),
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 4),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white24),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.cyanAccent),
+                    ),
+                  ),
+                  onChanged: (v) => vessel.pilotName = v,
+                ),
               ),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.cyanAccent),
+              const SizedBox(width: 16),
+              Text(
+                'DPS: ${vessel.totalDps.toStringAsFixed(1)}',
+                style: const TextStyle(color: Colors.orangeAccent, fontSize: 11),
               ),
-            ),
-            onChanged: (v) => vessel.pilotName = v,
+              const SizedBox(width: 12),
+              Text(
+                'Lv: ${game.currentSectorIndex + 1}',
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-
-          const Text('Ship Status', style: TextStyle(color: Colors.white70, fontSize: 13)),
           const SizedBox(height: 8),
 
-          HealthBar(
-            label: 'HP',
-            value: vessel.hp.toDouble(),
-            maxValue: vessel.hpMax.toDouble(),
-            color: Colors.red,
-          ),
-          const SizedBox(height: 6),
-          HealthBar(
-            label: 'Shield',
-            value: vessel.shield,
-            maxValue: vessel.shieldMax,
-            color: Colors.cyan,
-          ),
-          const SizedBox(height: 6),
-          HealthBar(
-            label: 'Generator',
-            value: vessel.genValue,
-            maxValue: vessel.genMax,
-            color: Colors.yellow,
-          ),
-          const SizedBox(height: 12),
-
-          Text(
-            'DPS: ${vessel.totalDps.toStringAsFixed(1)}',
-            style: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
-          ),
-          Text(
-            'Level: ${game.currentSectorIndex + 1}',
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
-          ),
-
-          const Spacer(),
-
-          // Equipped weapons list
-          const Text('Equipped', style: TextStyle(color: Colors.white70, fontSize: 13)),
-          const SizedBox(height: 4),
-          for (final d in vessel.devices)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${d.slot.name}: ${d.name}',
-                    style: const TextStyle(color: Colors.white, fontSize: 11),
-                  ),
-                  Text(
-                    'Lv.${d.level}',
-                    style: const TextStyle(color: Colors.yellowAccent, fontSize: 11),
-                  ),
-                ],
+          // Health bars in a row
+          Row(
+            children: [
+              Expanded(
+                child: HealthBar(
+                  label: 'HP',
+                  value: vessel.hp.toDouble(),
+                  maxValue: vessel.hpMax.toDouble(),
+                  color: Colors.red,
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: HealthBar(
+                  label: 'SH',
+                  value: vessel.shield,
+                  maxValue: vessel.shieldMax,
+                  color: Colors.cyan,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: HealthBar(
+                  label: 'GEN',
+                  value: vessel.genValue,
+                  maxValue: vessel.genMax,
+                  color: Colors.yellow,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // Equipped weapons in a compact row
+          Wrap(
+            spacing: 12,
+            children: [
+              for (final d in vessel.devices)
+                Text(
+                  '${d.slot.name}: ${d.name} Lv.${d.level}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 10),
+                ),
+            ],
+          ),
         ],
       ),
     );

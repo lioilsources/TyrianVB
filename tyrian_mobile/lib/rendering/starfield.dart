@@ -68,7 +68,7 @@ class Starfield extends Component with HasGameReference {
       if (star.y > config.gameHeight + 10) {
         star.x = star.startX;
         if (star.speed < 0.25 &&
-            (star.x - config.gameWidth / 2).abs() < 200 &&
+            (star.x - config.gameWidth / 2).abs() < config.gameWidth * 0.24 &&
             _rng.nextDouble() < 0.5) {
           star.y = config.gameHeight * _rng.nextDouble() * 0.8;
         } else {

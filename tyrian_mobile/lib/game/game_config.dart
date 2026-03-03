@@ -12,8 +12,8 @@ const int explosionSteps = 15;
 const int explosionVariants = 4;
 
 // Original VBA screen dimensions
-const double scrWidth = 832.0;
-const double scrHeight = 600.0;
+const double scrWidth = 600.0;
+const double scrHeight = 832.0;
 const double osdWidth = 280.0;
 
 // Logical game resolution (play area only)
