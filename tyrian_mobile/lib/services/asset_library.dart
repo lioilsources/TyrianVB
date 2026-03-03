@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 import 'package:flame/components.dart';
 import 'package:flame/flame.dart';
+import 'package:flutter/painting.dart';
 
 /// Replaces Library.cls — loads and caches all game sprites.
 /// BMP+mask system is eliminated; all assets are PNG with alpha channel.
@@ -60,7 +61,9 @@ class AssetLibrary {
     try {
       final image = await Flame.images.load(path);
       _images[name] = image;
-      _sprites[name] = Sprite(image);
+      final sprite = Sprite(image);
+      sprite.paint.filterQuality = FilterQuality.none;
+      _sprites[name] = sprite;
     } catch (_) {
       // Asset not yet converted — will use placeholder
     }
