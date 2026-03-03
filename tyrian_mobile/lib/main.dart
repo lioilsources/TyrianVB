@@ -60,6 +60,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   void _setupGameCallbacks() {
+    _game.onLoaded = () {
+      if (mounted) setState(() {});
+    };
+
     _game.onShowComCenter = () {
       setState(() => _showComCenter = true);
     };
@@ -125,13 +129,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           GameWidget(game: _game),
 
           // OSD HUD overlay (during gameplay)
-          if (!_showComCenter &&
+          if (_game.isLoaded &&
+              !_showComCenter &&
               !_showHighScores &&
               _game.state != GameState.gameOver)
             OsdPanel(game: _game),
 
           // Pause overlay
-          if (_game.state == GameState.paused)
+          if (_game.isLoaded && _game.state == GameState.paused)
             Center(
               child: Container(
                 padding:
@@ -172,7 +177,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             ),
 
           // ComCenter overlay
-          if (_showComCenter)
+          if (_game.isLoaded && _showComCenter)
             ComCenterScreen(
               game: _game,
               onStart: () {
@@ -186,7 +191,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             ),
 
           // High Scores overlay
-          if (_showHighScores)
+          if (_game.isLoaded && _showHighScores)
             HighScoresScreen(
               scores: _highScores,
               onClose: () {
@@ -201,7 +206,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             ),
 
           // Game Over overlay
-          if (_game.state == GameState.gameOver && !_showHighScores)
+          if (_game.isLoaded && _game.state == GameState.gameOver && !_showHighScores)
             Center(
               child: Container(
                 padding: const EdgeInsets.all(32),

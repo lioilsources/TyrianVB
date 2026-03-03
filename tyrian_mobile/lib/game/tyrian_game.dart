@@ -21,6 +21,7 @@ class TyrianGame extends FlameGame
   late BeamRenderer beamRenderer;
 
   GameState state = GameState.comCenter;
+  bool isLoaded = false;
 
   // Active game objects
   final List<Fleet> activeFleets = [];
@@ -37,6 +38,7 @@ class TyrianGame extends FlameGame
   VoidCallback? onGameOver;
   VoidCallback? onShowComCenter;
   VoidCallback? onSectorComplete;
+  VoidCallback? onLoaded;
 
   @override
   Color backgroundColor() => const Color(0xFF000000);
@@ -58,6 +60,8 @@ class TyrianGame extends FlameGame
     // Start in comCenter state
     state = GameState.comCenter;
     vessel.visible = false;
+    isLoaded = true;
+    onLoaded?.call();
   }
 
   void startGame() {
