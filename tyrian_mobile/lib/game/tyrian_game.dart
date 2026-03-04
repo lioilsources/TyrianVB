@@ -15,6 +15,7 @@ import '../systems/fleet.dart';
 import '../entities/projectile.dart';
 import '../services/asset_library.dart';
 import '../rendering/beam_renderer.dart';
+import '../ui/float_text.dart';
 
 enum GameState { comCenter, playing, paused, gameOver }
 
@@ -47,7 +48,6 @@ class TyrianGame extends FlameGame
   VoidCallback? onShowComCenter;
   VoidCallback? onSectorComplete;
   VoidCallback? onLoaded;
-  void Function(String)? onShowMessage;
 
   @override
   Color backgroundColor() => const Color(0xFF000000);
@@ -231,7 +231,12 @@ class TyrianGame extends FlameGame
   }
 
   void showMessage(String msg) {
-    onShowMessage?.call(msg);
+    world.add(FloatText(
+      text: msg,
+      color: const Color(0xFF00FFFF),
+      fontSize: 18,
+      position: Vector2(config.gameWidth / 2, config.gameHeight * 0.3),
+    ));
   }
 
   void _updateEnemyProjectiles() {

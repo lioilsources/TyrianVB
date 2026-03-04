@@ -199,7 +199,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   _showHighScores = false;
                   _showComCenter = true;
                 });
-                _game.vessel.resetVessel();
+                _game.vessel.newGame();
                 _game.currentSectorIndex = 0;
                 _game.state = GameState.comCenter;
               },
