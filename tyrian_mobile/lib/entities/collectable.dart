@@ -73,12 +73,27 @@ class Collectable extends PositionComponent
         final d = vessel.devices.where((d) => d.slot.index == 4).firstOrNull;
         if (d != null) d.upgrade();
       case CollType.healthUpgrade:
-        vessel.hp = (vessel.hp + 25).clamp(0, vessel.hpMax);
+        // VB6: if HP > 50% max: +25% HP, hpMax +5%. If HP <= 50%: +50% HP
+        if (vessel.hp > vessel.hpMax * 0.5) {
+          vessel.hp = (vessel.hp + (vessel.hpMax * 0.25).round()).clamp(0, vessel.hpMax * 2);
+          vessel.hpMax = (vessel.hpMax * 1.05).round();
+        } else {
+          vessel.hp = (vessel.hp + (vessel.hpMax * 0.50).round()).clamp(0, vessel.hpMax);
+        }
       case CollType.shieldUpgrade:
-        vessel.shield =
-            (vessel.shield + 10).clamp(0, vessel.shieldMax).toDouble();
+        // VB6: +30% shield, shieldMax +10%, shieldRegen ×1.1
+        if (vessel.shieldMax < 1500) {
+          vessel.shield = (vessel.shield + vessel.shieldMax * 0.30).clamp(0, vessel.shieldMax * 2);
+          vessel.shieldMax *= 1.10;
+          vessel.shieldRegen *= 1.1;
+        } else {
+          vessel.shield = (vessel.shield + vessel.shieldMax * 0.35).clamp(0, vessel.shieldMax * 2);
+          vessel.shieldRegen *= 1.025;
+        }
       case CollType.generatorUpgrade:
-        vessel.genPower *= 1.1;
+        // VB6: genPower ×1.255, genMax ×1.2
+        vessel.genPower *= 1.255;
+        vessel.genMax *= 1.2;
       case CollType.bonusCredit:
         vessel.credit += value;
       case CollType.none:

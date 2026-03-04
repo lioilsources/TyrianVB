@@ -66,126 +66,125 @@ class DevType {
     smallLaser,
   ];
 
-  // ---- Front Weapons ----
+  // ---- Front Weapons (VB6 ComCenter.GetDevType values) ----
 
   static const bubbleGun = DevType(
     name: 'Bubble Gun',
     imgName: 'bubble',
-    damage: 15,
-    speed: 6,
+    damage: 21,
+    speed: 15,
     guide: 0,
-    pwrNeed: 0.3,
-    cooldown: 8,
-    price: 0, // starter weapon
-    upgCost: 0.12,
+    pwrNeed: 12,
+    cooldown: 9,
+    price: 2000,
+    upgCost: 0.25,
     scaleProjectile: true,
-    minProjScale: 0.7,
-    maxProjScale: 1.5,
+    minProjScale: 0.5,
+    maxProjScale: 0.85,
   );
 
   static const vulcanCannon = DevType(
     name: 'Vulcan Cannon',
     imgName: 'vulcan',
-    damage: 8,
-    speed: 10,
+    damage: 24,
+    speed: 30,
     guide: 0,
-    pwrNeed: 0.15,
+    pwrNeed: 16,
     cooldown: 3,
-    price: 500,
-    upgCost: 0.1,
-    scaleProjectile: true,
-    minProjScale: 0.5,
-    maxProjScale: 1.0,
+    price: 16000,
+    upgCost: 0.30,
+    xShiftMax: 14,
   );
 
   static const blaster = DevType(
     name: 'Blaster',
     imgName: 'blaster',
-    damage: 25,
-    speed: 7,
-    guide: 5,
-    pwrNeed: 0.5,
-    cooldown: 12,
-    price: 800,
-    upgCost: 0.15,
-    scaleProjectile: true,
-    minProjScale: 0.8,
-    maxProjScale: 1.8,
+    damage: 250,
+    speed: 27,
+    guide: 2,
+    pwrNeed: 85,
+    cooldown: 15,
+    price: 60000,
+    upgCost: 0.30,
   );
 
   static const laser = DevType(
     name: 'Laser',
     imgName: 'laser',
-    damage: 35,
-    speed: 0,
-    guide: 0,
-    pwrNeed: 0.8,
+    damage: 64,
+    speed: 12,
+    guide: 3,
+    pwrNeed: 66,
     cooldown: 15,
     beam: 1,
     seqs: 6,
-    price: 1200,
-    upgCost: 0.2,
+    price: 175000,
+    upgCost: 0.42,
   );
 
-  // ---- Side Weapons ----
+  // ---- Side Weapons (VB6 ComCenter.GetDevType values) ----
 
   static const smallBubble = DevType(
     name: 'Small Bubble',
     imgName: 'bubble',
-    damage: 8,
-    speed: 5,
+    damage: 6,
+    speed: 15,
     guide: 0,
-    pwrNeed: 0.2,
-    cooldown: 10,
-    price: 300,
-    upgCost: 0.1,
+    pwrNeed: 4,
+    cooldown: 9,
+    price: 750,
+    upgCost: 0.25,
     scaleProjectile: true,
-    minProjScale: 0.5,
-    maxProjScale: 1.0,
+    minProjScale: 0.3,
+    maxProjScale: 0.55,
   );
 
   static const smallVulcan = DevType(
     name: 'Small Vulcan',
     imgName: 'vulcan',
-    damage: 5,
-    speed: 8,
+    damage: 6,
+    speed: 30,
     guide: 0,
-    pwrNeed: 0.1,
-    cooldown: 4,
-    price: 400,
-    upgCost: 0.1,
-    scaleProjectile: true,
-    minProjScale: 0.4,
-    maxProjScale: 0.8,
+    pwrNeed: 4,
+    cooldown: 3,
+    price: 8000,
+    upgCost: 0.30,
+    xShiftMax: 14,
   );
 
   static const starGun = DevType(
     name: 'Star Gun',
     imgName: 'starg',
-    damage: 12,
-    speed: 6,
-    guide: 8,
-    pwrNeed: 0.25,
+    damage: 30,
+    speed: 17,
+    guide: 10,
+    pwrNeed: 10,
     cooldown: 8,
-    xShiftMax: 3,
-    price: 600,
-    upgCost: 0.12,
-    scaleProjectile: true,
-    minProjScale: 0.6,
-    maxProjScale: 1.2,
+    price: 30000,
+    upgCost: 0.33,
   );
 
   static const smallLaser = DevType(
     name: 'Small Laser',
     imgName: 'laser',
-    damage: 20,
-    speed: 0,
-    guide: 0,
-    pwrNeed: 0.5,
-    cooldown: 18,
+    damage: 28,
+    speed: 12,
+    guide: 3,
+    pwrNeed: 27,
+    cooldown: 15,
     beam: 1,
-    seqs: 4,
-    price: 900,
-    upgCost: 0.18,
+    seqs: 6,
+    price: 80000,
+    upgCost: 0.42,
+  );
+
+  // ---- Generator ----
+
+  static const generatorBasic = DevType(
+    name: 'Falcon Basic',
+    imgName: 'generator',
+    pwrGen: 4.35,
+    price: 2000,
+    upgCost: 0.35,
   );
 }

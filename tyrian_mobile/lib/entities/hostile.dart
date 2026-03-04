@@ -35,7 +35,7 @@ class Hostile extends PositionComponent with HasGameReference<TyrianGame> {
   int shield = 0;
   int shieldMax = 0;
   int hit = 0; // Flash counter
-  int collisionDmg = 10;
+  int collisionDmg;
   PathSystem? trace;
   Device? weapon;
   Fleet? parentFleet;
@@ -55,10 +55,29 @@ class Hostile extends PositionComponent with HasGameReference<TyrianGame> {
     required this.hp,
     required this.hpMax,
     this.damage = 10,
-    this.collisionDmg = 10,
+    int? collisionDmg,
     this.trace,
     Vector2? position,
-  }) : super(position: position ?? Vector2.zero());
+  }) : collisionDmg = collisionDmg ?? getCollisionDmg(hostType),
+       super(position: position ?? Vector2.zero());
+
+  /// VB6 per-type collision damage (Objects.cls)
+  static int getCollisionDmg(HostType type) {
+    switch (type) {
+      case HostType.falcon1: return 1;
+      case HostType.falcon2: return 1;
+      case HostType.falcon3: return 1;
+      case HostType.falcon4: return 1;
+      case HostType.falcon5: return 2;
+      case HostType.falcon6: return 2;
+      case HostType.falconx: return 4;
+      case HostType.falconx2: return 6;
+      case HostType.falconx3: return 8;
+      case HostType.falconxb: return 10;
+      case HostType.falconxt: return 12;
+      case HostType.bouncer: return 20;
+    }
+  }
 
   @override
   Future<void> onLoad() async {

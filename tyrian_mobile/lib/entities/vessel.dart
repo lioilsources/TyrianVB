@@ -15,15 +15,15 @@ class Vessel extends PositionComponent
     with HasGameReference<TyrianGame>, CollisionCallbacks {
   String pilotName = 'Pilot';
 
-  // Stats
-  int hp = 100;
-  int hpMax = 100;
-  double shield = 0;
-  double shieldMax = 0;
-  double shieldRegen = 0.01;
-  double genValue = 5;
-  double genMax = 5;
-  double genPower = 0.02;
+  // Stats (VB6 Vessel.cls ResetVessel defaults)
+  int hp = 125;
+  int hpMax = 125;
+  double shield = 100;
+  double shieldMax = 100;
+  double shieldRegen = 0.1;
+  double genValue = 100;
+  double genMax = 100;
+  double genPower = 4;
   int credit = 0;
   int score = 0;
   int lvlNum = 1;

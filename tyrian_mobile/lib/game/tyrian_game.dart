@@ -37,6 +37,7 @@ class TyrianGame extends FlameGame
   Sector? currentSector;
   int currentSectorIndex = 0;
   double elapsed = 0;
+  double _osdTimer = 0;
 
   // Callbacks for Flutter overlay UI
   VoidCallback? onOsdUpdate;
@@ -131,6 +132,13 @@ class TyrianGame extends FlameGame
     // Update beam renderer with vessel data
     beamRenderer.vessel = vessel;
     beamRenderer.activeFleets = activeFleets;
+
+    // Periodic OSD refresh (~4Hz)
+    _osdTimer += dt;
+    if (_osdTimer >= 0.25) {
+      _osdTimer = 0;
+      onOsdUpdate?.call();
+    }
 
     // Check sector completion
     if (currentSector != null && currentSector!.isComplete) {
