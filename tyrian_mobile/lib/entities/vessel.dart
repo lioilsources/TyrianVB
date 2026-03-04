@@ -77,6 +77,21 @@ class Vessel extends PositionComponent
     }
   }
 
+  /// Full reset for new game — clears score, credits, weapons, unlock tiers
+  void newGame() {
+    score = 0;
+    credit = 0;
+    nextWeaponLevel = 0;
+    lastMaxDps = 0;
+    for (final d in devices) {
+      d.clearProjectiles();
+    }
+    devices.clear();
+    guidedWeapon = false;
+    equipWeapon(DevType.bubbleGun, WeaponSlot.frontGun);
+    resetVessel();
+  }
+
   /// Port of Vessel.AdjustPosition — move towards target
   void adjustPosition(double tx, double ty) {
     // Clamp to screen bounds
@@ -155,6 +170,13 @@ class Vessel extends PositionComponent
 
       // Update projectile positions and check collisions
       _updateProjectiles(d, dt);
+    }
+
+    // Beam damage — outside projectile loop (beams have 0 projectiles)
+    for (final d in devices) {
+      if (d.beamActive > 0) {
+        _processBeamCollision(d);
+      }
     }
 
     // Damage flash decay
@@ -254,11 +276,6 @@ class Vessel extends PositionComponent
       }
     }
 
-    // Beam collision — apply damage directly
-    if (d.beamActive > 0) {
-      _processBeamCollision(d);
-    }
-
     return false;
   }
 
@@ -266,6 +283,9 @@ class Vessel extends PositionComponent
     // Beam hits closest enemy continuously
     if (closestEnemy != null && !closestEnemy!.isDead) {
       closestEnemy!.takeDamage(d.damage, game);
+      if (closestEnemy!.isDead) {
+        closestEnemy!.parentFleet?.onHostileKilled(closestEnemy!, game);
+      }
     }
   }
 
