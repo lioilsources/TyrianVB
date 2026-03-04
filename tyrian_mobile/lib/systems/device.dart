@@ -1,5 +1,6 @@
 import 'package:flame/components.dart';
 import '../game/game_config.dart' as config;
+import '../game/tyrian_game.dart';
 import 'dev_type.dart';
 import '../entities/projectile.dart';
 import '../entities/vessel.dart';
@@ -128,10 +129,10 @@ class Device {
         py = vesselY;
     }
 
-    // Apply xShift wave effect
+    // Apply xShift wave effect (VB6: step of 7 per shot)
     if (xShiftMax != 0) {
       px += xShift;
-      xShift += xShiftDir;
+      xShift += xShiftDir * 7;
       if (xShift.abs() >= xShiftMax) xShiftDir = -xShiftDir;
     }
 
@@ -179,13 +180,43 @@ class Device {
     _pool.add(p);
   }
 
+  static const maxLevel = 25;
+
+  static const _roman = [
+    '', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
+    'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX',
+    'XXI', 'XXII', 'XXIII', 'XXIV', 'XXV',
+  ];
+
   /// Port of Device.Upgrade
   void upgrade() {
+    if (level >= maxLevel) {
+      // VB6: max level converts to credit/score bonus based on sector level
+      if (parentVessel != null) {
+        final sectorLevel = parentVessel!.lvlNum;
+        int bonus;
+        if (sectorLevel <= 1) {
+          bonus = 25000;
+        } else if (sectorLevel >= 40) {
+          bonus = 5000000;
+        } else {
+          bonus = sectorLevel * 125000;
+        }
+        parentVessel!.addScore(bonus);
+        parentVessel!.credit += bonus;
+        (parentVessel! as HasGameReference<TyrianGame>)
+            .game
+            .showMessage('Max. level! Sold for \$$bonus');
+      }
+      return;
+    }
     damage = (damage * config.upgDamageMultiplier).round();
     pwrNeed *= config.upgPwrNeedMultiplier;
     cooldown /= config.upgCooldownDivisor;
     level++;
     price = (price * (1 + upgCost)).round();
+    // VB6: update displayName with roman numeral
+    displayName = '$name ${_roman[level]}';
 
     if (pwrGen > 0 && parentVessel != null) {
       pwrGen *= config.upgPwrGenMultiplier;
@@ -193,9 +224,10 @@ class Device {
     }
   }
 
-  /// Calculate DPS
+  /// Calculate DPS (VB6: beam weapons multiply by seqs)
   double get dps {
     if (cooldown <= 0) return 0;
+    if (beam > 0) return damage * seqs / cooldown;
     return damage / cooldown;
   }
 

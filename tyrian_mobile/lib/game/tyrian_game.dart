@@ -99,6 +99,7 @@ class TyrianGame extends FlameGame
       world.add(currentSector!);
     }
     currentSectorIndex = index;
+    vessel.lvlNum = index + 1;
     elapsed = 0;
   }
 

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flame/components.dart';
 import '../game/game_config.dart' as config;
 import '../game/tyrian_game.dart';
@@ -45,6 +46,10 @@ class Fleet extends Component with HasGameReference<TyrianGame> {
   int altParam3 = 0;
   PathType? altParam4;
 
+  // Last kill position for bonus drop (VB6: spawn at last killed hostile)
+  double lastKillX = 0;
+  double lastKillY = 0;
+
   // Active hostiles
   final List<Hostile> hostiles = [];
 
@@ -80,9 +85,30 @@ class Fleet extends Component with HasGameReference<TyrianGame> {
       _spawned++;
     }
 
+    // Fleet weapon firing (centralized — prevents multi-fire bug from parallel hostile updates)
+    if (weapCharge > 0 && hostiles.isNotEmpty) {
+      weapCD++;
+      if (weapCD >= weapCharge) {
+        final alive = hostiles.where((h) => !h.isDead && h.y2 > 0).toList();
+        if (alive.isNotEmpty) {
+          final shooter = alive[Random().nextInt(alive.length)];
+          final xm = shooter.position.x + shooter.size.x / 2;
+          if (xm > 0 && xm < config.gameWidth) {
+            game.spawnEnemyProjectile(xm, shooter.y2 + 5, weapDamage, weapScale);
+          }
+        }
+        weapCD = 0;
+      }
+    }
+
     // Clean up dead hostiles
     hostiles.removeWhere((h) {
       if (h.isDead) {
+        game.addExplosion(
+          h.position.x + h.size.x / 2,
+          h.position.y + h.size.y / 2,
+          2,
+        );
         h.removeFromParent();
         return true;
       }
@@ -95,7 +121,8 @@ class Fleet extends Component with HasGameReference<TyrianGame> {
     // Check if fleet is depleted (all spawned, none alive)
     if (_spawned >= count && hostiles.isEmpty) {
       active = false;
-      _spawnBonus();
+      // VB6: bonus only drops when ALL enemies were killed (not path-destroyed)
+      if (kills >= count) _spawnBonus();
     }
   }
 
@@ -142,20 +169,22 @@ class Fleet extends Component with HasGameReference<TyrianGame> {
 
   void onHostileKilled(Hostile h, TyrianGame gameInstance) {
     kills++;
+    lastKillX = h.position.x + h.size.x / 2;
+    lastKillY = h.position.y + h.size.y / 2;
 
-    // Add score (VB6: score = hpMax, credit = hpMax / 10)
+    // Add score and credit (VB6: both = hpMax)
     gameInstance.vessel.addScore(h.hpMax);
-    gameInstance.vessel.credit += h.hpMax ~/ 10;
+    gameInstance.vessel.credit += h.hpMax;
   }
 
   void _spawnBonus() {
     if (bonus == CollType.none && bonusMoney <= 0) return;
 
-    // Spawn at fleet center
-    final cx = (minX + maxX) / 2;
-    final cy = (minY + maxY) / 2;
+    // VB6: spawn at last killed hostile's position
+    final cx = lastKillX;
+    final cy = lastKillY;
 
-    if (cx.isInfinite || cy.isInfinite) return;
+    if (cx == 0 && cy == 0) return;
 
     final coll = Collectable(
       caption: _bonusCaption(),

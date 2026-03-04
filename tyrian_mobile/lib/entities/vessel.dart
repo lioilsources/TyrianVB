@@ -77,12 +77,19 @@ class Vessel extends PositionComponent
     }
   }
 
-  /// Full reset for new game — clears score, credits, weapons, unlock tiers
+  /// Full reset for new game — VB6 ResetVessel: all stats back to defaults
   void newGame() {
     score = 0;
     credit = 0;
     nextWeaponLevel = 0;
     lastMaxDps = 0;
+    // Reset stat upgrades to VB6 defaults
+    hpMax = 125;
+    shieldMax = 100;
+    shieldRegen = 0.1;
+    genMax = 100;
+    genPower = 4;
+    lvlNum = 1;
     for (final d in devices) {
       d.clearProjectiles();
     }
@@ -183,21 +190,29 @@ class Vessel extends PositionComponent
     if (dmgTaken > 0) dmgTaken--;
   }
 
+  /// VB6 TestDistance — finds closest enemy within guidance cone
   void _findClosestEnemy() {
     double minDist = 10000;
     closestEnemy = null;
 
     int maxGuide = 0;
+    int maxSpeed = 0;
     for (final d in devices) {
       if (d.guide > maxGuide) maxGuide = d.guide;
+      if (d.speed > maxSpeed) maxSpeed = d.speed;
     }
     if (maxGuide == 0) return;
+
+    // VB6: grat = maxGuide / maxSpeed — guidance angle ratio
+    final grat = maxSpeed > 0 ? maxGuide / maxSpeed : 0.0;
 
     for (final fleet in game.activeFleets) {
       for (final hostile in fleet.hostiles) {
         if (hostile.isDead) continue;
-        final dx = position.x - hostile.hostCenter.x;
-        final dy = position.y - hostile.hostCenter.y;
+        final dx = (position.x - hostile.hostCenter.x).abs();
+        final dy = position.y - hostile.hostCenter.y; // positive = enemy above
+        if (dy <= 0) continue; // enemy below or at same Y — unreachable
+        if (grat < dx / dy) continue; // outside guidance cone
         final dist = sqrt(dx * dx + dy * dy);
         if (dist < minDist) {
           minDist = dist;

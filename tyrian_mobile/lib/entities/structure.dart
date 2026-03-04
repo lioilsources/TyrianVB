@@ -86,6 +86,9 @@ class Structure extends PositionComponent
         }
     }
 
+    // Asteroid collision with player (VB6 Structure.cls:129-146)
+    _checkPlayerCollision();
+
     // Remove if off screen
     if (position.y > config.gameHeight + size.y) {
       _remove();
@@ -104,6 +107,21 @@ class Structure extends PositionComponent
         size.x.toInt() ~/ 10,
       );
       _remove();
+    }
+  }
+
+  void _checkPlayerCollision() {
+    if (structType != StructType.asteroid) return;
+    final vessel = game.vessel;
+    if (!vessel.visible) return;
+
+    if (position.x < vessel.position.x + vessel.size.x / 2 &&
+        x2 > vessel.position.x - vessel.size.x / 2 &&
+        position.y < vessel.position.y + vessel.size.y / 2 &&
+        y2 > vessel.position.y - vessel.size.y / 2) {
+      vessel.takeDamage(collisionDmg);
+      // VB6: push player below asteroid
+      vessel.position.y = y2 + vessel.size.y / 2;
     }
   }
 

@@ -43,13 +43,16 @@ class Sector extends Component with HasGameReference<TyrianGame> {
       }
     }
 
-    // Fleet acceleration: skip dead time when all active fleets cleared
+    // Fleet acceleration: skip dead time (VB6: max 2-second buffer before next fleet)
     if (fleets.any((f) => f.started)) {
       final allStartedDead = fleets.where((f) => f.started).every((f) => !f.active);
       if (allStartedDead) {
         final nextUnstarted = fleets.where((f) => !f.started).toList();
         if (nextUnstarted.isNotEmpty) {
-          elapsed = nextUnstarted.first.enterTime;
+          final target = nextUnstarted.first.enterTime;
+          if (target > elapsed + 2) {
+            elapsed = target - 2; // VB6: snap to 2s before next fleet
+          }
         }
       }
     }
@@ -656,10 +659,15 @@ class Sector extends Component with HasGameReference<TyrianGame> {
   static Sector _createRandom(int index, TyrianGame game) {
     final rng = Random(index * 42);
     final level = index + 1;
+
+    // VB6: fleetCount = Round(Rnd * 15 + 5) → 5-20 fleets
+    final numFleets = (rng.nextDouble() * 15 + 5).round();
+
     final s = Sector(
       caption: 'Sector ${index + 1} — Unknown Space',
       level: level,
-      sectorBonus: 500 + index * 200,
+      // VB6: sectorBonus = CLng(fleetCount) * CLng(2500) * level
+      sectorBonus: numFleets * 2500 * level,
     );
 
     // Track max DPS (VB6 rocket.lastMaxDps)
@@ -691,11 +699,12 @@ class Sector extends Component with HasGameReference<TyrianGame> {
     if (level >= 17 && dps > 10000) maxHostLevel = 11;
     maxHostLevel = maxHostLevel.clamp(0, HostType.values.length - 1);
 
-    final numFleets = 3 + rng.nextInt(3);
     final hostTypes = HostType.values;
+    double etime = 2.0;
+    double simultan = 1.0;
+    double prevDur = 0;
 
     for (int i = 0; i < numFleets; i++) {
-      // VB6: host type selection capped by maxHostLevel
       final typeIndex = rng.nextInt(maxHostLevel + 1).clamp(0, hostTypes.length - 1);
       final ht = hostTypes[typeIndex];
       final enemyHp = Hostile.getHpMax(ht).toDouble();
@@ -727,7 +736,35 @@ class Sector extends Component with HasGameReference<TyrianGame> {
       if (dur < 3.0) dur = 3.0;
       if (dur > 120.0) dur = 120.0;
 
-      final enter = i * 5.0 + rng.nextDouble() * 3.0;
+      // VB6 simultaneous fleet logic: chance of sharing previous enter time
+      double enter;
+      if (i > 0 && rng.nextDouble() > 0.55 / simultan) {
+        enter = etime; // simultaneous with previous fleet
+        simultan++;
+      } else {
+        if (i > 0) {
+          etime += prevDur + 2.0 + rng.nextDouble() * 3.0;
+        }
+        enter = etime;
+        simultan = 1.0;
+      }
+      prevDur = dur;
+
+      // VB6: 35% chance of horizontal attack paths
+      double srcX, srcY, dstX, dstY;
+      if (rng.nextDouble() < 0.35) {
+        final fromLeft = rng.nextBool();
+        srcX = fromLeft ? -50.0 : config.gameWidth + 50;
+        dstX = fromLeft ? config.gameWidth + 50 : -50.0;
+        srcY = config.gameHeight * 0.2 + rng.nextDouble() * config.gameHeight * 0.5;
+        dstY = config.gameHeight * 0.2 + rng.nextDouble() * config.gameHeight * 0.5;
+      } else {
+        srcX = rng.nextDouble() * config.gameWidth;
+        srcY = -40.0 - rng.nextDouble() * 60;
+        dstX = rng.nextDouble() * config.gameWidth;
+        dstY = config.gameHeight + 40.0 + rng.nextDouble() * 60;
+      }
+
       final bonusTypes = CollType.values;
       final bon = bonusTypes[rng.nextInt(bonusTypes.length)];
 
@@ -739,10 +776,10 @@ class Sector extends Component with HasGameReference<TyrianGame> {
         count: cnt,
         triggerSteps: 15 + rng.nextInt(30),
         durationSec: dur,
-        srcX: rng.nextDouble() * config.gameWidth,
-        srcY: -40.0 - rng.nextDouble() * 60,
-        dstX: rng.nextDouble() * config.gameWidth,
-        dstY: config.gameHeight + 40.0 + rng.nextDouble() * 60,
+        srcX: srcX,
+        srcY: srcY,
+        dstX: dstX,
+        dstY: dstY,
         pathType: pt,
         amplitude: amp,
         cycles: cyc,
@@ -750,8 +787,6 @@ class Sector extends Component with HasGameReference<TyrianGame> {
         bonusMoney: 100 + rng.nextInt(500),
         showDamage: true,
       );
-      // VB6: damage = hostTypeIndex * 5.555 * dcf
-      // VB6: recharge = (400 - min(dps/20, 385)) * 2 + 2
       final weapDmg = (typeIndex * 5.555 * dcf).round().clamp(5, 9999);
       final maxFL = (dps / 20).round().clamp(0, 385);
       final weapRecharge = ((400 - maxFL) * 2 + 2).clamp(4, 802);
@@ -759,21 +794,15 @@ class Sector extends Component with HasGameReference<TyrianGame> {
       s.fleets.add(fleet);
     }
 
-    // Random asteroids
-    if (rng.nextBool()) {
-      for (int i = 0; i < 3 + rng.nextInt(5); i++) {
-        s.structures.add(Structure(
-          caption: 'Asteroid',
-          behavior: StructBehavior.fall,
-          structType: StructType.asteroid,
-          hp: 999999,
-          hpMax: 999999,
-          imgName: 'asteroid${rng.nextInt(4) == 0 ? '' : (rng.nextInt(3) + 1).toString()}',
-          position: Vector2(
-            rng.nextDouble() * config.gameWidth,
-            -(rng.nextDouble() * 600 + 100),
-          ),
-        ));
+    // VB6 asteroids: count = Rnd * (fleetCount/2), timed across the sector
+    final asteroidCount = (rng.nextDouble() * numFleets / 2).round();
+    if (asteroidCount > 0) {
+      _addAsteroids(s, 0, asteroidCount, 50, config.gameWidth - 100);
+      // Redistribute enter times evenly across sector duration
+      final totalTime = etime + prevDur;
+      for (int i = 0; i < s.structures.length; i++) {
+        final slice = totalTime / s.structures.length;
+        s.structures[i].enterTime = slice * i + rng.nextDouble() * slice;
       }
     }
 

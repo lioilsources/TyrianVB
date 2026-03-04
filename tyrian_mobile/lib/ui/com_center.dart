@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../game/tyrian_game.dart';
 import '../systems/dev_type.dart';
+import '../systems/device.dart';
 import '../entities/vessel.dart';
 import '../rendering/health_bar.dart';
 
@@ -329,14 +330,18 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
             ),
           if (owned) ...[
             Expanded(
-              child: ElevatedButton(
-                onPressed: () => _upgradeWeapon(weapon),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade800,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('UPGRADE'),
-              ),
+              child: Builder(builder: (context) {
+                final device = vessel.devices.firstWhere((d) => d.name == weapon.name);
+                final atMax = device.level >= Device.maxLevel;
+                return ElevatedButton(
+                  onPressed: atMax ? null : () => _upgradeWeapon(weapon),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade800,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(atMax ? 'MAX LV' : 'UPGRADE'),
+                );
+              }),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -385,7 +390,7 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
 
   void _sellWeapon(DevType weapon) {
     final device = vessel.devices.firstWhere((d) => d.name == weapon.name);
-    vessel.credit += device.price ~/ 2;
+    vessel.credit += device.price;
     vessel.removeWeapon(device.slot);
     setState(() {});
   }

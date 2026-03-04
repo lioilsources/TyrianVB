@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../game/game_config.dart' as config;
 import '../game/tyrian_game.dart';
 import '../systems/path_system.dart';
+import '../systems/dev_type.dart';
 import 'vessel.dart';
 
 /// Collectable types from VBA CollType enum
@@ -64,30 +65,42 @@ class Collectable extends PositionComponent
   void applyEffect(Vessel vessel, TyrianGame game) {
     switch (cType) {
       case CollType.frontWepUpgrade:
-        final d = vessel.devices.where((d) => d.slot.index == 0).firstOrNull;
-        if (d != null) d.upgrade();
+        // VB6: creates Bubble Gun if slot empty
+        var d = vessel.devices.where((d) => d.slot == WeaponSlot.frontGun).firstOrNull;
+        d ??= vessel.equipWeapon(DevType.bubbleGun, WeaponSlot.frontGun);
+        d.upgrade();
       case CollType.leftWepUpgrade:
-        final d = vessel.devices.where((d) => d.slot.index == 2).firstOrNull;
-        if (d != null) d.upgrade();
+        // VB6: creates Small Bubble if slot empty
+        var d = vessel.devices.where((d) => d.slot == WeaponSlot.leftGun).firstOrNull;
+        d ??= vessel.equipWeapon(DevType.smallBubble, WeaponSlot.leftGun);
+        d.upgrade();
       case CollType.rightWepUpgrade:
-        final d = vessel.devices.where((d) => d.slot.index == 4).firstOrNull;
-        if (d != null) d.upgrade();
+        // VB6: creates Small Bubble if slot empty
+        var d = vessel.devices.where((d) => d.slot == WeaponSlot.rightGun).firstOrNull;
+        d ??= vessel.equipWeapon(DevType.smallBubble, WeaponSlot.rightGun);
+        d.upgrade();
       case CollType.healthUpgrade:
-        // VB6: if HP > 50% max: +25% HP, hpMax +5%. If HP <= 50%: +50% HP
+        // VB6: if HP > 50% max: +25% HP, hpMax +5% (linear +50 above 2000)
         if (vessel.hp > vessel.hpMax * 0.5) {
           vessel.hp = (vessel.hp + (vessel.hpMax * 0.25).round()).clamp(0, vessel.hpMax * 2);
-          vessel.hpMax = (vessel.hpMax * 1.05).round();
+          if (vessel.hpMax < 2000) {
+            vessel.hpMax = (vessel.hpMax * 1.05).round();
+          } else {
+            vessel.hpMax += 50;
+          }
         } else {
           vessel.hp = (vessel.hp + (vessel.hpMax * 0.50).round()).clamp(0, vessel.hpMax);
         }
       case CollType.shieldUpgrade:
-        // VB6: +30% shield, shieldMax +10%, shieldRegen ×1.1
+        // VB6: <1500: +30% shield, shieldMax ×1.10, regen ×1.1
+        // VB6: >=1500: +35% shield, shieldMax rounded to nearest 25, regen ×1.025
         if (vessel.shieldMax < 1500) {
           vessel.shield = (vessel.shield + vessel.shieldMax * 0.30).clamp(0, vessel.shieldMax * 2);
           vessel.shieldMax *= 1.10;
           vessel.shieldRegen *= 1.1;
         } else {
           vessel.shield = (vessel.shield + vessel.shieldMax * 0.35).clamp(0, vessel.shieldMax * 2);
+          vessel.shieldMax = ((vessel.shieldMax + 25) / 25).roundToDouble() * 25;
           vessel.shieldRegen *= 1.025;
         }
       case CollType.generatorUpgrade:

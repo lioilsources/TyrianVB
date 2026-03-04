@@ -3,7 +3,6 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import '../game/tyrian_game.dart';
-import '../game/game_config.dart' as config;
 import '../systems/path_system.dart';
 import '../systems/fleet.dart';
 import '../systems/device.dart';
@@ -156,24 +155,6 @@ class Hostile extends PositionComponent with HasGameReference<TyrianGame> {
       }
     }
 
-    // Enemy weapon firing (VB6 Hostile.step weapon logic)
-    if (parentFleet != null && parentFleet!.weapCharge > 0) {
-      parentFleet!.weapCD++;
-      if (parentFleet!.weapCD >= parentFleet!.weapCharge) {
-        // Only fire when on-screen
-        final xm = position.x + size.x / 2;
-        if (y2 > 0 && xm > 0 && xm < config.gameWidth) {
-          game.spawnEnemyProjectile(
-            xm,
-            y2 + 5,
-            parentFleet!.weapDamage,
-            parentFleet!.weapScale,
-          );
-        }
-        parentFleet!.weapCD = 0;
-      }
-    }
-
     // Hit flash decay
     if (hit > 0) hit--;
 
@@ -242,23 +223,13 @@ class Hostile extends PositionComponent with HasGameReference<TyrianGame> {
         position.y < vessel.position.y + vessel.size.y / 2 &&
         y2 > vessel.position.y - vessel.size.y / 2) {
       vessel.takeDamage(collisionDmg);
-      takeDamage(collisionDmg, game);
     }
   }
 
   void takeDamage(int dmg, TyrianGame gameInstance) {
     hp -= dmg;
     if (hit == 0) hit = 2;
-
-    if (hp <= 0) {
-      hp = 0;
-      // Spawn explosion
-      gameInstance.addExplosion(
-        position.x + size.x / 2,
-        position.y + size.y / 2,
-        size.x.toInt() ~/ 10,
-      );
-    }
+    if (hp <= 0) hp = 0;
   }
 
   @override
