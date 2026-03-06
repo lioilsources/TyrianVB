@@ -637,9 +637,13 @@ class TyrianGame extends FlameGame
       _applyVesselSnap(vessel2!, snap.vessel2);
     }
 
-    // Update game state
+    // Update game state (don't let snapshot downgrade playing→comCenter on client —
+    // gameStart event may arrive before first snapshot with playing state)
     if (snap.gameState < GameState.values.length) {
-      state = GameState.values[snap.gameState];
+      final newState = GameState.values[snap.gameState];
+      if (!(coopRole == CoopRole.client && state == GameState.playing && newState == GameState.comCenter)) {
+        state = newState;
+      }
     }
     currentSectorIndex = snap.sectorIndex;
     elapsed = snap.elapsed;

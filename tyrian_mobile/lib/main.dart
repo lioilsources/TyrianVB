@@ -220,6 +220,21 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// After co-op game over: revive vessels, return to ComCenter (keep connection alive)
+  void _returnToCoopComCenter() {
+    _game.vessel.resetVessel();
+    _game.vessel.resetPosition();
+    _game.vessel2?.resetVessel();
+    _game.vessel2?.resetPosition();
+    _game.state = GameState.comCenter;
+    if (mounted) {
+      setState(() {
+        _showHighScores = false;
+        _showComCenter = true;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -314,7 +329,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             if (_showHighScores)
               HighScoresScreen(
                 scores: _highScores,
-                onClose: _returnToMainMenu,
+                onClose: _game.isCoop ? _returnToCoopComCenter : _returnToMainMenu,
               ),
 
             // Game Over

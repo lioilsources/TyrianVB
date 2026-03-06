@@ -73,6 +73,7 @@ class Vessel extends PositionComponent
     genValue = genMax;
     dmgTaken = 0;
     fire = false;
+    visible = true;
     for (final d in devices) {
       d.clearProjectiles();
     }
