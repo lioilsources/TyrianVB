@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../game/tyrian_game.dart';
+import '../entities/vessel.dart';
 import '../rendering/health_bar.dart';
 
 /// Ported from OSD panel rendering — HUD overlay showing ship stats.
@@ -11,7 +12,6 @@ class OsdPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vessel = game.vessel;
     final sector = game.currentSector;
 
     return Positioned(
@@ -47,60 +47,44 @@ class OsdPanel extends StatelessWidget {
                   ),
                 ),
 
-              // Stats bars
-              Row(
-                children: [
-                  // HP
-                  Expanded(
-                    child: HealthBar(
-                      label: 'HP',
-                      value: vessel.hp.toDouble(),
-                      maxValue: vessel.hpMax.toDouble(),
-                      color: Colors.red,
-                      height: 10,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Shield
-                  Expanded(
-                    child: HealthBar(
-                      label: 'Shield',
-                      value: vessel.shield,
-                      maxValue: vessel.shieldMax,
-                      color: Colors.cyan,
-                      height: 10,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Generator
-                  Expanded(
-                    child: HealthBar(
-                      label: 'Power',
-                      value: vessel.genValue,
-                      maxValue: vessel.genMax,
-                      color: Colors.yellow,
-                      height: 10,
-                    ),
-                  ),
-                ],
-              ),
+              // P1 stats
+              _buildVesselStats(game.vessel, 'P1'),
+
+              // P2 stats (co-op only)
+              if (game.isCoop) ...[
+                const SizedBox(height: 4),
+                _buildVesselStats(game.vessel2!, 'P2'),
+              ],
 
               const SizedBox(height: 4),
 
-              // Bottom row: Credit + Score + Pause
+              // Bottom row: Pause button + scores
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Credits: ${vessel.credit}',
+                    game.isCoop
+                        ? 'P1: ${game.vessel.credit}cr'
+                        : 'Credits: ${game.vessel.credit}',
                     style: const TextStyle(
                       color: Colors.greenAccent,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  if (game.isCoop)
+                    Text(
+                      'P2: ${game.vessel2!.credit}cr',
+                      style: const TextStyle(
+                        color: Color(0xFF00FF80),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   Text(
-                    'Score: ${vessel.score}',
+                    game.isCoop
+                        ? '${game.vessel.score} | ${game.vessel2!.score}'
+                        : 'Score: ${game.vessel.score}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -131,6 +115,55 @@ class OsdPanel extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildVesselStats(Vessel vessel, String label) {
+    final dead = !vessel.visible || vessel.hp <= 0;
+    return Row(
+      children: [
+        if (game.isCoop)
+          SizedBox(
+            width: 22,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: dead ? Colors.red : (label == 'P2' ? const Color(0xFF00FF80) : Colors.cyanAccent),
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        Expanded(
+          child: HealthBar(
+            label: 'HP',
+            value: vessel.hp.toDouble(),
+            maxValue: vessel.hpMax.toDouble(),
+            color: Colors.red,
+            height: 10,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: HealthBar(
+            label: 'SH',
+            value: vessel.shield,
+            maxValue: vessel.shieldMax,
+            color: Colors.cyan,
+            height: 10,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: HealthBar(
+            label: 'PWR',
+            value: vessel.genValue,
+            maxValue: vessel.genMax,
+            color: Colors.yellow,
+            height: 10,
+          ),
+        ),
+      ],
     );
   }
 }

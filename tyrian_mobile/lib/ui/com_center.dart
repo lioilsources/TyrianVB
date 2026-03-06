@@ -4,6 +4,7 @@ import '../systems/dev_type.dart';
 import '../systems/device.dart';
 import '../entities/vessel.dart';
 import '../rendering/health_bar.dart';
+import '../net/protocol.dart';
 
 /// Ported from ComCenter.cls — the shop/equipment screen.
 /// Implemented as a Flutter Material screen (not Flame).
@@ -26,7 +27,17 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
   int _selectedWeaponIndex = 0;
 
   TyrianGame get game => widget.game;
-  Vessel get vessel => game.vessel;
+
+  /// Returns the local player's vessel:
+  /// Host/solo → vessel (P1), Client → vessel2 (P2)
+  Vessel get vessel {
+    if (game.coopRole == CoopRole.client && game.vessel2 != null) {
+      return game.vessel2!;
+    }
+    return game.vessel;
+  }
+
+  bool get _isClient => game.coopRole == CoopRole.client;
 
   /// Weapons filtered by score-based unlock tier (VB6 WepLevScores)
   /// Index maps to tier: 0=starter, 1=400k, 2=4M, 3=14M
@@ -368,13 +379,17 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
     if (_selectedCategory == 0) {
       slot = WeaponSlot.frontGun;
     } else {
-      // Check which side slot is free
       final hasLeft = vessel.devices.any((d) => d.slot == WeaponSlot.leftGun);
       slot = hasLeft ? WeaponSlot.rightGun : WeaponSlot.leftGun;
     }
 
-    vessel.credit -= weapon.price;
-    vessel.equipWeapon(weapon, slot);
+    if (_isClient) {
+      // Send to host for processing
+      game.coopClient?.sendShopAction(ShopActionType.buy, weapon.name, slot.index);
+    } else {
+      vessel.credit -= weapon.price;
+      vessel.equipWeapon(weapon, slot);
+    }
     setState(() {});
   }
 
@@ -383,32 +398,56 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
     final cost = device.price;
     if (vessel.credit < cost) return;
 
-    vessel.credit -= cost;
-    device.upgrade();
+    if (_isClient) {
+      game.coopClient?.sendShopAction(ShopActionType.upgrade, weapon.name, device.slot.index);
+    } else {
+      vessel.credit -= cost;
+      device.upgrade();
+    }
     setState(() {});
   }
 
   void _sellWeapon(DevType weapon) {
     final device = vessel.devices.firstWhere((d) => d.name == weapon.name);
-    vessel.credit += device.price;
-    vessel.removeWeapon(device.slot);
+
+    if (_isClient) {
+      game.coopClient?.sendShopAction(ShopActionType.sell, weapon.name, device.slot.index);
+    } else {
+      vessel.credit += device.price;
+      vessel.removeWeapon(device.slot);
+    }
     setState(() {});
   }
 
   Widget _buildBottomBar() {
+    final isCoop = game.isCoop;
+    final label = game.currentSectorIndex == 0 ? 'START MISSION' : 'CONTINUE MISSION';
+
     return Padding(
       padding: const EdgeInsets.all(12),
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: widget.onStart,
+          onPressed: () {
+            if (isCoop) {
+              // In co-op: signal ready and wait for both players
+              if (game.coopRole == CoopRole.host) {
+                game.setHostReady();
+              } else if (game.coopRole == CoopRole.client) {
+                game.coopClient?.sendReady();
+              }
+              // Game start handled by onBothReady (host) / onRemoteStart (client)
+            } else {
+              widget.onStart();
+            }
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.cyanAccent,
             foregroundColor: Colors.black,
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
           child: Text(
-            game.currentSectorIndex == 0 ? 'START MISSION' : 'CONTINUE MISSION',
+            isCoop ? 'READY' : label,
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,

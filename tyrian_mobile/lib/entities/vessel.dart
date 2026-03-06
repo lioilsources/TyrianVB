@@ -14,6 +14,7 @@ import 'collectable.dart';
 class Vessel extends PositionComponent
     with HasGameReference<TyrianGame>, CollisionCallbacks {
   String pilotName = 'Pilot';
+  int playerIndex; // 0=P1, 1=P2
 
   // Stats (VB6 Vessel.cls ResetVessel defaults)
   int hp = 125;
@@ -46,7 +47,7 @@ class Vessel extends PositionComponent
   Sprite? _sprite;
   bool visible = true;
 
-  Vessel() : super(anchor: Anchor.center);
+  Vessel({this.playerIndex = 0}) : super(anchor: Anchor.center);
 
   Future<void> init() async {
     _sprite = AssetLibrary.instance.getSprite('vessel');
@@ -140,6 +141,8 @@ class Vessel extends PositionComponent
   @override
   void update(double dt) {
     if (!visible) return;
+    // Client: positions set by snapshot, skip all game logic
+    if (game.coopRole == CoopRole.client) return;
 
     final scaledDt = dt * config.originalFps;
 
@@ -271,9 +274,9 @@ class Vessel extends PositionComponent
         if (h.isDead) continue;
         if (_aabbOverlap(px1, py1, px2, py2,
             h.position.x, h.position.y, h.x2, h.y2)) {
-          h.takeDamage(d.damage, game);
+          h.takeDamage(d.damage, game, attacker: this);
           if (h.isDead) {
-            fleet.onHostileKilled(h, game);
+            fleet.onHostileKilled(h, game, attacker: this);
           }
           return true; // Projectile consumed
         }
@@ -297,9 +300,9 @@ class Vessel extends PositionComponent
   void _processBeamCollision(Device d) {
     // Beam hits closest enemy continuously
     if (closestEnemy != null && !closestEnemy!.isDead) {
-      closestEnemy!.takeDamage(d.damage, game);
+      closestEnemy!.takeDamage(d.damage, game, attacker: this);
       if (closestEnemy!.isDead) {
-        closestEnemy!.parentFleet?.onHostileKilled(closestEnemy!, game);
+        closestEnemy!.parentFleet?.onHostileKilled(closestEnemy!, game, attacker: this);
       }
     }
   }
@@ -323,7 +326,13 @@ class Vessel extends PositionComponent
 
     if (hp <= 0) {
       hp = 0;
-      game.triggerGameOver();
+      if (game.isCoop) {
+        visible = false;
+        fire = false;
+        game.checkCoopGameOver();
+      } else {
+        game.triggerGameOver();
+      }
     }
   }
 
@@ -427,6 +436,14 @@ class Vessel extends PositionComponent
         ..lineTo(size.x, size.y)
         ..close();
       canvas.drawPath(path, paint);
+    }
+
+    // P2 tint — green overlay to distinguish from P1
+    if (playerIndex == 1) {
+      final tintPaint = Paint()
+        ..color = const Color(0x4000FF80)
+        ..blendMode = BlendMode.srcATop;
+      canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), tintPaint);
     }
 
     // Damage flash — red tint

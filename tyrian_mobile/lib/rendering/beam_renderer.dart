@@ -10,6 +10,7 @@ import '../systems/dev_type.dart';
 /// Here we use Canvas drawLine with gradient colors.
 class BeamRenderer extends Component {
   Vessel? vessel;
+  Vessel? vessel2;
   List<Fleet>? activeFleets;
 
   // Gradient colors for beam (blue to yellow, ported from GenerateBeamGrad)
@@ -30,9 +31,13 @@ class BeamRenderer extends Component {
 
   @override
   void render(Canvas canvas) {
-    if (vessel == null) return;
+    _renderVesselBeams(canvas, vessel);
+    _renderVesselBeams(canvas, vessel2);
+  }
 
-    for (final device in vessel!.devices) {
+  void _renderVesselBeams(Canvas canvas, Vessel? v) {
+    if (v == null || !v.visible) return;
+    for (final device in v.devices) {
       if (device.beamActive > 0 && device.beam > 0) {
         _drawBeam(canvas, device,
             fat: device.slot == WeaponSlot.frontGun);

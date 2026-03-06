@@ -4,6 +4,7 @@ import '../game/game_config.dart' as config;
 import '../game/tyrian_game.dart';
 import '../entities/hostile.dart';
 import '../entities/collectable.dart';
+import '../entities/vessel.dart';
 import '../systems/path_system.dart';
 import '../systems/device.dart';
 
@@ -76,6 +77,8 @@ class Fleet extends Component with HasGameReference<TyrianGame> {
   @override
   void update(double dt) {
     if (!active) return;
+    // Client: entities managed by snapshot, skip spawning/firing
+    if (game.coopRole == CoopRole.client) return;
 
     // Spawn enemies at intervals
     _stepTimer += dt;
@@ -167,14 +170,15 @@ class Fleet extends Component with HasGameReference<TyrianGame> {
     }
   }
 
-  void onHostileKilled(Hostile h, TyrianGame gameInstance) {
+  void onHostileKilled(Hostile h, TyrianGame gameInstance, {Vessel? attacker}) {
     kills++;
     lastKillX = h.position.x + h.size.x / 2;
     lastKillY = h.position.y + h.size.y / 2;
 
-    // Add score and credit (VB6: both = hpMax)
-    gameInstance.vessel.addScore(h.hpMax);
-    gameInstance.vessel.credit += h.hpMax;
+    // Add score and credit to the vessel that got the kill
+    final target = attacker ?? gameInstance.vessel;
+    target.addScore(h.hpMax);
+    target.credit += h.hpMax;
   }
 
   void _spawnBonus() {

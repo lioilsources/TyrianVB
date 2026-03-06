@@ -7,6 +7,7 @@ import '../systems/path_system.dart';
 import '../systems/fleet.dart';
 import '../systems/device.dart';
 import '../services/asset_library.dart';
+import 'vessel.dart';
 
 /// Host types from VBA Objects.cls HostType enum
 enum HostType {
@@ -145,6 +146,8 @@ class Hostile extends PositionComponent with HasGameReference<TyrianGame> {
   @override
   void update(double dt) {
     if (isDead) return;
+    // Client: positions set by snapshot, skip all game logic
+    if (game.coopRole == CoopRole.client) return;
 
     // Follow path
     if (trace != null && trace!.current != null) {
@@ -214,19 +217,20 @@ class Hostile extends PositionComponent with HasGameReference<TyrianGame> {
   }
 
   void _checkPlayerCollision() {
-    final vessel = game.vessel;
-    if (!vessel.visible) return;
+    for (final vessel in game.allVessels) {
+      if (!vessel.visible) continue;
 
-    // AABB collision with player
-    if (position.x < vessel.position.x + vessel.size.x / 2 &&
-        x2 > vessel.position.x - vessel.size.x / 2 &&
-        position.y < vessel.position.y + vessel.size.y / 2 &&
-        y2 > vessel.position.y - vessel.size.y / 2) {
-      vessel.takeDamage(collisionDmg);
+      // AABB collision with player
+      if (position.x < vessel.position.x + vessel.size.x / 2 &&
+          x2 > vessel.position.x - vessel.size.x / 2 &&
+          position.y < vessel.position.y + vessel.size.y / 2 &&
+          y2 > vessel.position.y - vessel.size.y / 2) {
+        vessel.takeDamage(collisionDmg);
+      }
     }
   }
 
-  void takeDamage(int dmg, TyrianGame gameInstance) {
+  void takeDamage(int dmg, TyrianGame gameInstance, {Vessel? attacker}) {
     hp -= dmg;
     if (hit == 0) hit = 2;
     if (hp <= 0) hp = 0;
