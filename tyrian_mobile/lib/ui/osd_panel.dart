@@ -58,35 +58,16 @@ class OsdPanel extends StatelessWidget {
 
               const SizedBox(height: 4),
 
-              // Bottom row: Pause button + scores
+              // Bottom row: Credits + Pause button
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     game.isCoop
-                        ? 'P1: ${game.vessel.credit}cr'
+                        ? 'P1: ${game.vessel.credit}cr  P2: ${game.vessel2!.credit}cr'
                         : 'Credits: ${game.vessel.credit}',
                     style: const TextStyle(
                       color: Colors.greenAccent,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (game.isCoop)
-                    Text(
-                      'P2: ${game.vessel2!.credit}cr',
-                      style: const TextStyle(
-                        color: Color(0xFF00FF80),
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  Text(
-                    game.isCoop
-                        ? '${game.vessel.score} | ${game.vessel2!.score}'
-                        : 'Score: ${game.vessel.score}',
-                    style: const TextStyle(
-                      color: Colors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),

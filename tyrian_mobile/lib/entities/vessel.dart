@@ -422,29 +422,28 @@ class Vessel extends PositionComponent
     return total;
   }
 
+  // P2 tint: modulate keeps alpha intact, tints RGB toward green
+  static final _p2Paint = Paint()
+    ..colorFilter = const ColorFilter.mode(Color(0xFF80FFA0), BlendMode.modulate);
+
   @override
   void render(Canvas canvas) {
     if (!visible) return;
 
+    final paint = playerIndex == 1 ? _p2Paint : null;
+
     if (_sprite != null) {
-      _sprite!.render(canvas, size: size);
+      _sprite!.render(canvas, size: size, overridePaint: paint);
     } else {
       // Placeholder triangle
-      final paint = Paint()..color = const Color(0xFF00FFFF);
+      final color = playerIndex == 1 ? const Color(0xFF00FF80) : const Color(0xFF00FFFF);
+      final p = Paint()..color = color;
       final path = Path()
         ..moveTo(size.x / 2, 0)
         ..lineTo(0, size.y)
         ..lineTo(size.x, size.y)
         ..close();
-      canvas.drawPath(path, paint);
-    }
-
-    // P2 tint — green overlay to distinguish from P1
-    if (playerIndex == 1) {
-      final tintPaint = Paint()
-        ..color = const Color(0x4000FF80)
-        ..blendMode = BlendMode.srcATop;
-      canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), tintPaint);
+      canvas.drawPath(path, p);
     }
 
     // Damage flash — red tint

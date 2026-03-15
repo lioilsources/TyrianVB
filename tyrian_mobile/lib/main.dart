@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,10 +9,10 @@ import 'game/tyrian_game.dart';
 import 'ui/com_center.dart';
 import 'ui/osd_panel.dart';
 import 'ui/high_scores.dart';
-import 'ui/coop_lobby.dart';
 import 'services/save_service.dart';
 import 'net/coop_host.dart';
 import 'net/coop_client.dart';
+import 'net/discovery.dart';
 import 'net/protocol.dart';
 
 void main() {
@@ -46,7 +49,7 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-enum _ScreenState { mainMenu, coopChoice, lobby, game }
+enum _ScreenState { mainMenu, game }
 
 class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   late TyrianGame _game;
@@ -54,7 +57,20 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   bool _showComCenter = false;
   bool _showHighScores = false;
   List<HighScoreEntry> _highScores = [];
-  bool _lobbyIsHost = false;
+
+  // Scanning state
+  bool _scanning = false;
+  String _scanStatus = 'Looking for games...';
+
+  // Auto-host state (active from ComCenter through gameplay)
+  CoopHost? _autoHost;
+  CoopDiscovery? _autoDiscovery;
+
+  // Client waiting overlay (P2 waiting for host to start)
+  bool _clientWaiting = false;
+
+  // Device name — loaded async, applied when game is ready
+  String _pilotName = 'Pilot';
 
   @override
   void initState() {
@@ -63,10 +79,34 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     _game = TyrianGame();
     _setupGameCallbacks();
     _loadHighScores();
+    _loadDeviceName();
+  }
+
+  Future<void> _loadDeviceName() async {
+    try {
+      final info = DeviceInfoPlugin();
+      String name;
+      if (Platform.isIOS) {
+        final ios = await info.iosInfo;
+        name = ios.name;
+      } else if (Platform.isAndroid) {
+        final android = await info.androidInfo;
+        name = android.model;
+      } else {
+        return;
+      }
+      if (name.isNotEmpty) {
+        _pilotName = name;
+        if (_game.isLoaded) {
+          _game.vessel.pilotName = name;
+        }
+      }
+    } catch (_) {}
   }
 
   void _setupGameCallbacks() {
     _game.onLoaded = () {
+      _game.vessel.pilotName = _pilotName;
       if (mounted) setState(() {});
     };
 
@@ -77,7 +117,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     _game.onGameOver = () async {
       final entry = HighScoreEntry(
         name: _game.vessel.pilotName,
-        score: _game.vessel.score,
+        score: _game.vessel.credit,
         level: _game.currentSectorIndex + 1,
       );
       await SaveService.saveHighScore(entry);
@@ -95,11 +135,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     _game.onSectorComplete = () {
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) {
-          // Only host advances sector (client gets it via snapshots)
           if (_game.coopRole != CoopRole.client) {
             _game.advanceToNextSector();
+            setState(() => _showComCenter = true);
+          } else {
+            // P2: show waiting overlay while host shops
+            setState(() => _clientWaiting = true);
           }
-          setState(() => _showComCenter = true);
         }
       });
     };
@@ -108,35 +150,24 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       if (mounted) setState(() {});
     };
 
-    // Co-op host: when both players are ready in ComCenter
-    _game.onBothReady = () {
-      if (mounted) {
-        setState(() => _showComCenter = false);
-        if (_game.currentSector == null) {
-          _game.startGame();
-        } else {
-          _game.vessel.resetVessel();
-          _game.vessel2?.resetVessel();
-          _game.resumeFromComCenter();
-        }
-      }
-    };
-
     // Co-op client: when host signals game start
     _game.onRemoteStart = () {
       if (mounted) {
-        setState(() => _showComCenter = false);
+        setState(() {
+          _showComCenter = false;
+          _clientWaiting = false;
+        });
       }
     };
 
     // Co-op: remote peer disconnected
     _game.onDisconnected = () {
       if (mounted) {
-        // If in game, just show message (already done in setupCoopClient).
-        // If in lobby/comcenter, return to menu.
-        if (_game.state == GameState.comCenter || _screen != _ScreenState.game) {
+        // Client in waiting state → return to menu
+        if (_clientWaiting || _game.state == GameState.comCenter) {
           _returnToMainMenu();
         }
+        // If playing, just show message (already done in setupCoopClient)
       }
     };
   }
@@ -163,30 +194,157 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _disposeAutoHost();
     _game.disposeCoop();
     super.dispose();
   }
 
-  void _startSolo() {
+  // ==== PLAY button: scan then auto-host or join ====
+
+  Future<void> _startPlayWithScan() async {
+    if (_scanning) return;
     setState(() {
-      _screen = _ScreenState.game;
-      _showComCenter = true;
+      _scanning = true;
+      _scanStatus = 'Looking for games...';
     });
+
+    final discovery = CoopDiscovery();
+    await discovery.startListening();
+
+    // Poll every 200ms for up to 3s
+    for (int i = 0; i < 15; i++) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      if (!mounted) { discovery.dispose(); return; }
+
+      if (discovery.hosts.isNotEmpty) {
+        final entry = discovery.hosts.entries.first;
+        final ip = entry.key;
+        final hostInfo = entry.value;
+        discovery.dispose();
+
+        setState(() => _scanStatus = 'Found ${hostInfo.pilotName}! Connecting...');
+        await Future.delayed(const Duration(milliseconds: 400));
+        if (!mounted) return;
+
+        setState(() => _scanning = false);
+        await _joinAsClient(ip, hostInfo.port);
+        return;
+      }
+    }
+
+    // No host found → show choice: solo or manual IP
+    discovery.dispose();
+    if (!mounted) return;
+    setState(() => _scanning = false);
+    _showNoHostDialog();
   }
 
-  void _openCoopChoice() {
-    setState(() => _screen = _ScreenState.coopChoice);
+  /// Get the device's WiFi IP for display
+  Future<String> _getLocalIp() async {
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLinkLocal: false,
+      );
+      for (final iface in interfaces) {
+        // Prefer WiFi interface (en0 on iOS, wlan0 on Android)
+        if (iface.name.startsWith('en') || iface.name.startsWith('wlan')) {
+          for (final addr in iface.addresses) {
+            if (!addr.isLoopback) return addr.address;
+          }
+        }
+      }
+      // Fallback: any non-loopback address
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          if (!addr.isLoopback) return addr.address;
+        }
+      }
+    } catch (_) {}
+    return '?';
   }
 
-  void _openLobby(bool isHost) {
-    setState(() {
-      _lobbyIsHost = isHost;
-      _screen = _ScreenState.lobby;
-    });
+  void _showNoHostDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text('No games found', style: TextStyle(color: Colors.cyanAccent)),
+        content: const Text(
+          'Start a new game (others can join later)\nor enter the host\'s IP to connect.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () { Navigator.pop(ctx); _startAsAutoHost(); },
+            child: const Text('START SOLO', style: TextStyle(color: Colors.cyanAccent)),
+          ),
+          TextButton(
+            onPressed: () { Navigator.pop(ctx); _showManualIpDialog(); },
+            child: const Text('ENTER IP', style: TextStyle(color: Colors.orangeAccent)),
+          ),
+        ],
+      ),
+    );
   }
 
-  void _onHostReady(CoopHost host, String clientPilotName) async {
-    await _game.setupCoopHost(host, clientPilotName);
+  void _showManualIpDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text('Connect to host', style: TextStyle(color: Colors.cyanAccent)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.url,
+          style: const TextStyle(color: Colors.white, fontSize: 18),
+          decoration: const InputDecoration(
+            hintText: '192.168.x.x',
+            hintStyle: TextStyle(color: Colors.white38),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.cyanAccent)),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.cyanAccent)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              final ip = controller.text.trim();
+              if (ip.isNotEmpty) {
+                Navigator.pop(ctx);
+                _joinAsClient(ip, CoopHost.defaultPort);
+              }
+            },
+            child: const Text('CONNECT', style: TextStyle(color: Colors.cyanAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _startAsAutoHost() async {
+    _autoHost = CoopHost();
+    final port = await _autoHost!.start(_game.vessel.pilotName);
+
+    _game.setupAutoHost(_autoHost!);
+    _game.hostIp = await _getLocalIp();
+    print('Host: local IP = ${_game.hostIp}, TCP port = $port');
+
+    // Wire up client-joined notification for UI
+    _game.onClientJoined = () {
+      if (mounted) setState(() {});
+    };
+
+    // Start UDP broadcast
+    _autoDiscovery = CoopDiscovery();
+    await _autoDiscovery!.startBroadcast(port, _game.vessel.pilotName);
+
     if (mounted) {
       setState(() {
         _screen = _ScreenState.game;
@@ -195,18 +353,41 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _onClientReady(CoopClient client, String hostIp, int hostPort) async {
+  Future<void> _joinAsClient(String ip, int port) async {
+    print('Joining $ip:$port');
+    final client = CoopClient();
+    final ok = await client.connect(ip, port, _game.vessel.pilotName);
+    if (!ok) {
+      // Connection failed → show feedback, then fall back to auto-host
+      setState(() => _scanStatus = 'Connection failed, starting solo...');
+      _scanning = true;
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        setState(() => _scanning = false);
+        await _startAsAutoHost();
+      }
+      return;
+    }
+
     await _game.setupCoopClient(client);
 
     if (mounted) {
       setState(() {
         _screen = _ScreenState.game;
-        _showComCenter = true;
+        _clientWaiting = true;
       });
     }
   }
 
+  void _disposeAutoHost() {
+    _autoDiscovery?.dispose();
+    _autoDiscovery = null;
+    // Don't dispose _autoHost here — it's owned by _game.coopHost after setupAutoHost
+    _autoHost = null;
+  }
+
   void _returnToMainMenu() async {
+    _disposeAutoHost();
     await _game.disposeCoop();
     _game.vessel.newGame();
     _game.currentSectorIndex = 0;
@@ -216,11 +397,12 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         _screen = _ScreenState.mainMenu;
         _showComCenter = false;
         _showHighScores = false;
+        _clientWaiting = false;
       });
     }
   }
 
-  /// After co-op game over: revive vessels, return to ComCenter (keep connection alive)
+  /// After game over with co-op: revive vessels, return to ComCenter
   void _returnToCoopComCenter() {
     _game.vessel.resetVessel();
     _game.vessel.resetPosition();
@@ -232,6 +414,18 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         _showHighScores = false;
         _showComCenter = true;
       });
+    }
+  }
+
+  /// ComCenter START button handler (host/solo)
+  void _onComCenterStart() {
+    setState(() => _showComCenter = false);
+    if (_game.currentSector == null) {
+      _game.startGame();
+    } else {
+      _game.vessel.resetVessel();
+      _game.vessel2?.resetVessel();
+      _game.resumeFromComCenter(); // handles P2 clone + gameStart event
     }
   }
 
@@ -247,24 +441,15 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           if (_game.isLoaded && _screen == _ScreenState.mainMenu)
             _buildMainMenu(),
 
-          // Co-op choice: Host or Join
-          if (_game.isLoaded && _screen == _ScreenState.coopChoice)
-            _buildCoopChoice(),
-
-          // Lobby
-          if (_game.isLoaded && _screen == _ScreenState.lobby)
-            CoopLobbyScreen(
-              isHost: _lobbyIsHost,
-              pilotName: _game.vessel.pilotName,
-              onHostReady: _onHostReady,
-              onClientReady: _onClientReady,
-              onCancel: () => setState(() => _screen = _ScreenState.coopChoice),
-            ),
+          // Scanning spinner overlay
+          if (_scanning)
+            _buildScanningOverlay(),
 
           // Game screen overlays
           if (_game.isLoaded && _screen == _ScreenState.game) ...[
             // OSD HUD
-            if (!_showComCenter && !_showHighScores && _game.state != GameState.gameOver)
+            if (!_showComCenter && !_showHighScores && !_clientWaiting &&
+                _game.state != GameState.gameOver)
               OsdPanel(game: _game),
 
             // Pause overlay
@@ -309,21 +494,16 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 ),
               ),
 
-            // ComCenter
+            // ComCenter (host/solo only — P2 never sees this)
             if (_showComCenter)
               ComCenterScreen(
                 game: _game,
-                onStart: () {
-                  // Solo mode only — co-op uses READY sync
-                  if (_game.isCoop) return;
-                  setState(() => _showComCenter = false);
-                  if (_game.currentSector == null) {
-                    _game.startGame();
-                  } else {
-                    _game.resumeFromComCenter();
-                  }
-                },
+                onStart: _onComCenterStart,
               ),
+
+            // Client waiting overlay (P2)
+            if (_clientWaiting && !_showHighScores)
+              _buildWaitingOverlay(),
 
             // High Scores
             if (_showHighScores)
@@ -356,13 +536,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Score: ${_game.vessel.score}',
-                        style: const TextStyle(color: Colors.white, fontSize: 18),
+                        'Credits: ${_game.vessel.credit}',
+                        style: const TextStyle(color: Colors.greenAccent, fontSize: 18),
                       ),
                       if (_game.isCoop && _game.vessel2 != null) ...[
                         const SizedBox(height: 4),
                         Text(
-                          'P2 Score: ${_game.vessel2!.score}',
+                          'P2: ${_game.vessel2!.credit}',
                           style: const TextStyle(color: Color(0xFF00FF80), fontSize: 16),
                         ),
                       ],
@@ -409,30 +589,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             SizedBox(
               width: 200,
               child: ElevatedButton(
-                onPressed: _startSolo,
+                onPressed: _startPlayWithScan,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.cyanAccent,
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: const Text(
-                  'SOLO',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 3),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: 200,
-              child: OutlinedButton(
-                onPressed: _openCoopChoice,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.cyanAccent,
-                  side: const BorderSide(color: Colors.cyanAccent),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text(
-                  'CO-OP',
+                  'PLAY',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 3),
                 ),
               ),
@@ -443,67 +607,51 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildCoopChoice() {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(40),
-        decoration: BoxDecoration(
-          color: Colors.black.withAlpha(200),
-          borderRadius: BorderRadius.circular(16),
-        ),
+  Widget _buildScanningOverlay() {
+    return Container(
+      color: Colors.black54,
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'CO-OP',
+            const CircularProgressIndicator(color: Colors.cyanAccent),
+            const SizedBox(height: 16),
+            Text(
+              _scanStatus,
+              style: const TextStyle(
+                color: Colors.cyanAccent,
+                fontSize: 16,
+                letterSpacing: 2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWaitingOverlay() {
+    return Container(
+      color: Colors.black87,
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: Colors.cyanAccent),
+            SizedBox(height: 16),
+            Text(
+              'Waiting for host...',
               style: TextStyle(
                 color: Colors.cyanAccent,
-                fontSize: 28,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 4,
+                letterSpacing: 2,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'WiFi LAN multiplayer',
+            SizedBox(height: 8),
+            Text(
+              'Game will start when host is ready',
               style: TextStyle(color: Colors.white54, fontSize: 13),
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: 200,
-              child: ElevatedButton(
-                onPressed: () => _openLobby(true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.cyanAccent,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text(
-                  'HOST GAME',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: 200,
-              child: OutlinedButton(
-                onPressed: () => _openLobby(false),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.cyanAccent,
-                  side: const BorderSide(color: Colors.cyanAccent),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text(
-                  'JOIN GAME',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () => setState(() => _screen = _ScreenState.mainMenu),
-              child: const Text('BACK', style: TextStyle(color: Colors.white54)),
             ),
           ],
         ),

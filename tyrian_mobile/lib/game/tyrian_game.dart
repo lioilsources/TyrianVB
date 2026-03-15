@@ -41,8 +41,9 @@ class TyrianGame extends FlameGame
   CoopRole coopRole = CoopRole.none;
   CoopHost? coopHost;
   CoopClient? coopClient;
-  bool hostReady = false;
-  bool clientReady = false;
+  String? hostIp; // Display to user for manual connect
+  /// Callback when a client joins (for UI notification)
+  VoidCallback? onClientJoined;
 
   /// All active (visible) vessels for collision iteration
   List<Vessel> get allVessels => [
@@ -52,6 +53,7 @@ class TyrianGame extends FlameGame
 
   // Client-side entity cache for snapshot rendering
   final Map<int, Hostile> _clientHostiles = {};
+  final Map<int, Structure> _clientStructures = {};
   final List<Projectile> _clientPlayerProjectiles = [];
 
   GameState state = GameState.comCenter;
@@ -114,10 +116,16 @@ class TyrianGame extends FlameGame
     vessel.visible = true;
     vessel.resetPosition();
     if (vessel2 != null) {
+      // Re-clone P1 stats onto P2 before each sector
+      _cloneVesselStats(vessel, vessel2!);
       vessel2!.visible = true;
       vessel2!.resetPosition();
       // Offset P2 slightly to the right of P1
       vessel2!.position.x += 60;
+    }
+    // Notify client that game is starting
+    if (coopRole == CoopRole.host && coopHost != null && coopHost!.hasClient) {
+      coopHost!.sendEvent(EventType.gameStart);
     }
     loadSector(currentSectorIndex);
   }
@@ -166,7 +174,9 @@ class TyrianGame extends FlameGame
     if (coopRole == CoopRole.client) {
       final snap = coopClient?.latestSnapshot;
       if (snap != null) {
-        applySnapshot(snap);
+        try {
+          applySnapshot(snap);
+        } catch (_) {}
         coopClient!.latestSnapshot = null;
       }
       super.update(dt);
@@ -203,7 +213,9 @@ class TyrianGame extends FlameGame
 
     // Host mode: send snapshot to client after each frame
     if (coopRole == CoopRole.host && coopHost != null && coopHost!.hasClient) {
-      coopHost!.sendSnapshot(extractSnapshot());
+      try {
+        coopHost!.sendSnapshot(extractSnapshot());
+      } catch (_) {}
     }
   }
 
@@ -241,7 +253,18 @@ class TyrianGame extends FlameGame
   }
 
   void resumeFromComCenter() {
+    // Re-clone P1 stats onto P2 before each sector (host upgraded in ComCenter)
+    if (vessel2 != null && coopRole == CoopRole.host) {
+      _cloneVesselStats(vessel, vessel2!);
+      vessel2!.visible = true;
+      vessel2!.resetPosition();
+      vessel2!.position.x += 60;
+    }
     state = GameState.playing;
+    // Notify client that game is starting
+    if (coopRole == CoopRole.host && coopHost != null && coopHost!.hasClient) {
+      coopHost!.sendEvent(EventType.gameStart);
+    }
   }
 
   void togglePause() {
@@ -434,18 +457,12 @@ class TyrianGame extends FlameGame
 
   // ==== Co-op setup ====
 
-  /// Initialize co-op as host with a connected client
-  Future<void> setupCoopHost(CoopHost host, String clientPilotName) async {
+  /// Initialize as auto-host (every solo game). Vessel2 created on client connect.
+  void setupAutoHost(CoopHost host) {
     coopRole = CoopRole.host;
     coopHost = host;
 
-    vessel2 = Vessel(playerIndex: 1);
-    vessel2!.pilotName = clientPilotName;
-    await vessel2!.init();
-    world.add(vessel2!);
-    vessel2!.visible = false;
-
-    // Wire up client input to vessel2
+    // Wire up callbacks — vessel2 created lazily on connect
     host.onClientInput = (dx, dy, fire) {
       if (vessel2 != null && vessel2!.visible) {
         vessel2!.adjustPosition(dx, dy);
@@ -453,20 +470,72 @@ class TyrianGame extends FlameGame
       }
     };
 
-    host.onClientReady = () {
-      clientReady = true;
-      _checkBothReady();
+    host.onClientConnected = (pilotName) async {
+      print('Host: handshake from $pilotName');
+      // Create vessel2 on first connect (or re-use if client reconnects)
+      if (vessel2 == null) {
+        vessel2 = Vessel(playerIndex: 1);
+        vessel2!.pilotName = pilotName;
+        await vessel2!.init();
+        world.add(vessel2!);
+      } else {
+        vessel2!.pilotName = pilotName;
+      }
+
+      // Clone P1 stats onto P2
+      _cloneVesselStats(vessel, vessel2!);
+
+      if (state == GameState.playing) {
+        // Mid-game join: spawn visible immediately
+        vessel2!.visible = true;
+        vessel2!.resetPosition();
+        vessel2!.position.x += 60;
+      } else {
+        // In ComCenter: keep invisible until host starts
+        vessel2!.visible = false;
+      }
+
+      showMessage('Player 2 joined!');
+      onClientJoined?.call();
     };
 
     host.onClientDisconnected = () {
-      // Client disconnect — remove vessel2, continue solo
       vessel2?.visible = false;
       showMessage('Player 2 disconnected');
     };
+  }
 
-    host.onShopAction = (action, slot, weaponName) {
-      _handleClientShopAction(action, slot, weaponName);
-    };
+  /// Deep-copy stats and weapons from source vessel to target
+  void _cloneVesselStats(Vessel src, Vessel dst) {
+    dst.hpMax = src.hpMax;
+    dst.hp = src.hp;
+    dst.shieldMax = src.shieldMax;
+    dst.shield = src.shield;
+    dst.shieldRegen = src.shieldRegen;
+    dst.genMax = src.genMax;
+    dst.genPower = src.genPower;
+    dst.genValue = src.genValue;
+    dst.credit = src.credit;
+    dst.score = src.score;
+    dst.nextWeaponLevel = src.nextWeaponLevel;
+    dst.lastMaxDps = src.lastMaxDps;
+    dst.lvlNum = src.lvlNum;
+
+    // Clone weapons: clear existing, recreate from same DevTypes at same levels
+    for (final d in dst.devices) {
+      d.clearProjectiles();
+    }
+    dst.devices.clear();
+    dst.guidedWeapon = false;
+
+    for (final srcDev in src.devices) {
+      final wt = _findWeaponType(srcDev.name);
+      if (wt == null) continue;
+      final newDev = dst.equipWeapon(wt, srcDev.slot);
+      for (int i = 0; i < srcDev.level; i++) {
+        newDev.upgrade();
+      }
+    }
   }
 
   /// Initialize co-op as client. Call after onLoad.
@@ -474,11 +543,10 @@ class TyrianGame extends FlameGame
     coopRole = CoopRole.client;
     coopClient = client;
 
-    // Create vessel2 (this client's ship) — visible in world for rendering
-    vessel2 = Vessel(playerIndex: 1);
-    await vessel2!.init();
-    world.add(vessel2!);
-    vessel2!.visible = false;
+    // Set callbacks FIRST (before async gap) to avoid race conditions
+    client.onConnected = (hostPilotName) {
+      // Connection confirmed by host handshake
+    };
 
     client.onGameEvent = (eventType, x, y, text) {
       switch (eventType) {
@@ -506,29 +574,19 @@ class TyrianGame extends FlameGame
       showMessage('Host disconnected');
       onDisconnected?.call();
     };
+
+    // Now do async work — callbacks already wired
+    vessel2 = Vessel(playerIndex: 1);
+    await vessel2!.init();
+    world.add(vessel2!);
+    vessel2!.visible = false;
   }
 
   /// Callback when remote peer disconnects
   VoidCallback? onDisconnected;
 
-  void _checkBothReady() {
-    if (hostReady && clientReady) {
-      hostReady = false;
-      clientReady = false;
-      // Notify client that game is starting
-      coopHost?.sendEvent(EventType.gameStart);
-      onBothReady?.call();
-    }
-  }
-
-  VoidCallback? onBothReady;
   /// Fires on client when host signals game start
   VoidCallback? onRemoteStart;
-
-  void setHostReady() {
-    hostReady = true;
-    _checkBothReady();
-  }
 
   // ==== Host: snapshot extraction ====
 
@@ -610,6 +668,20 @@ class TyrianGame extends FlameGame
       }
     }
 
+    // Structures (asteroids)
+    final structSnaps = <StructSnap>[];
+    for (final s in activeStructures) {
+      if (s.isDead) continue;
+      structSnaps.add(StructSnap(
+        id: s.id,
+        x: s.position.x, y: s.position.y,
+        sizeX: s.size.x, sizeY: s.size.y,
+        hp: s.hp, hit: s.hit,
+        structType: s.structType.index,
+        imgName: s.imgName,
+      ));
+    }
+
     final v2 = vessel2 ?? vessel; // Fallback if no vessel2
 
     return encodeGameSnapshot(
@@ -625,6 +697,7 @@ class TyrianGame extends FlameGame
       playerProjs: pProjSnaps,
       collectables: collSnaps,
       beams: beamSnaps,
+      structures: structSnaps,
     );
   }
 
@@ -679,6 +752,32 @@ class TyrianGame extends FlameGame
       h?.removeFromParent();
     }
 
+    // Structures (asteroids)
+    final seenStructIds = <int>{};
+    for (final ss in snap.structures) {
+      seenStructIds.add(ss.id);
+      var structure = _clientStructures[ss.id];
+      if (structure == null) {
+        structure = Structure(
+          caption: '',
+          structType: StructType.values[ss.structType.clamp(0, StructType.values.length - 1)],
+          hp: ss.hp,
+          hpMax: ss.hp,
+          imgName: ss.imgName,
+        );
+        _clientStructures[ss.id] = structure;
+        world.add(structure);
+      }
+      structure.position.setValues(ss.x, ss.y);
+      structure.hp = ss.hp;
+      structure.hit = ss.hit;
+    }
+    final structToRemove = _clientStructures.keys.where((k) => !seenStructIds.contains(k)).toList();
+    for (final k in structToRemove) {
+      final s = _clientStructures.remove(k);
+      s?.removeFromParent();
+    }
+
     // Enemy projectiles — recreate each frame (simple, since they're cheap)
     for (final p in enemyProjectiles) {
       p.removeFromParent();
@@ -731,39 +830,6 @@ class TyrianGame extends FlameGame
     v.visible = snap.visible;
   }
 
-  // ==== Client shop action handling on host ====
-
-  void _handleClientShopAction(int action, int slot, String weaponName) {
-    if (vessel2 == null) return;
-    final v = vessel2!;
-
-    switch (action) {
-      case ShopActionType.buy:
-        // Find weapon type by name
-        final wt = _findWeaponType(weaponName);
-        if (wt == null || v.credit < wt.price) return;
-        v.credit -= wt.price;
-        final ws = WeaponSlot.values[slot.clamp(0, WeaponSlot.values.length - 1)];
-        v.equipWeapon(wt, ws);
-
-      case ShopActionType.sell:
-        final device = v.devices.where((d) => d.name == weaponName).firstOrNull;
-        if (device == null) return;
-        v.credit += device.price;
-        v.removeWeapon(device.slot);
-
-      case ShopActionType.upgrade:
-        final device = v.devices.where((d) => d.name == weaponName).firstOrNull;
-        if (device == null) return;
-        if (v.credit < device.price) return;
-        v.credit -= device.price;
-        device.upgrade();
-    }
-
-    // Send updated shop state back to client
-    _sendShopStateToClient();
-  }
-
   DevType? _findWeaponType(String name) {
     for (final w in DevType.frontWeapons) {
       if (w.name == name) return w;
@@ -774,30 +840,6 @@ class TyrianGame extends FlameGame
     return null;
   }
 
-  void _sendShopStateToClient() {
-    if (coopHost == null || vessel2 == null) return;
-    final v = vessel2!;
-
-    final vesselSnap = VesselSnap(
-      x: v.position.x, y: v.position.y,
-      hp: v.hp, hpMax: v.hpMax,
-      shield: v.shield, shieldMax: v.shieldMax,
-      gen: v.genValue, genMax: v.genMax,
-      score: v.score, credit: v.credit,
-      fire: v.fire, dmgTaken: v.dmgTaken, visible: v.visible,
-    );
-
-    final weapons = v.devices.map((d) => (
-      name: d.name,
-      slot: d.slot.index,
-      level: d.level,
-      damage: d.damage,
-      price: d.price,
-    )).toList();
-
-    coopHost!.send(encodeShopState(vesselData: vesselSnap, weapons: weapons));
-  }
-
   // ==== Cleanup ====
 
   Future<void> disposeCoop() async {
@@ -806,6 +848,7 @@ class TyrianGame extends FlameGame
     coopHost = null;
     coopClient = null;
     coopRole = CoopRole.none;
+    onClientJoined = null;
 
     if (vessel2 != null) {
       vessel2!.removeFromParent();
@@ -817,6 +860,10 @@ class TyrianGame extends FlameGame
       h.removeFromParent();
     }
     _clientHostiles.clear();
+    for (final s in _clientStructures.values) {
+      s.removeFromParent();
+    }
+    _clientStructures.clear();
     for (final p in _clientPlayerProjectiles) {
       p.removeFromParent();
     }

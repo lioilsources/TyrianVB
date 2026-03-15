@@ -22,6 +22,7 @@ class CoopClient {
 
   /// Connect to host at given IP and port
   Future<bool> connect(String host, int port, String pilotName) async {
+    print('Client: connecting to $host:$port');
     try {
       _socket = await Socket.connect(host, port,
           timeout: const Duration(seconds: 5));
@@ -31,13 +32,15 @@ class CoopClient {
         (data) => _onData(Uint8List.fromList(data)),
         onDone: _onDone,
         onError: (_) => _onDone(),
-        cancelOnError: true,
+        cancelOnError: false,
       );
 
       // Send handshake
       _socket!.add(encodeLobbyHandshake(pilotName));
+      print('Client: connected');
       return true;
-    } catch (_) {
+    } catch (e) {
+      print('Client: connect failed: $e');
       return false;
     }
   }
@@ -45,20 +48,24 @@ class CoopClient {
   void _onData(Uint8List data) {
     final messages = _framer.addData(data);
     for (final (type, payload) in messages) {
-      switch (type) {
-        case MsgType.gameStateSnapshot:
-          latestSnapshot = decodeGameSnapshot(payload);
+      try {
+        switch (type) {
+          case MsgType.gameStateSnapshot:
+            latestSnapshot = decodeGameSnapshot(payload);
 
-        case MsgType.lobbyHandshake:
-          final hs = decodeLobbyHandshake(payload);
-          onConnected?.call(hs.pilotName);
+          case MsgType.lobbyHandshake:
+            final hs = decodeLobbyHandshake(payload);
+            onConnected?.call(hs.pilotName);
 
-        case MsgType.gameEvent:
-          final ev = decodeGameEvent(payload);
-          onGameEvent?.call(ev.eventType, ev.x, ev.y, ev.text);
+          case MsgType.gameEvent:
+            final ev = decodeGameEvent(payload);
+            onGameEvent?.call(ev.eventType, ev.x, ev.y, ev.text);
 
-        case MsgType.shopState:
-          onShopState?.call(payload);
+          case MsgType.shopState:
+            onShopState?.call(payload);
+        }
+      } catch (e) {
+        print('CoopClient._onData error: $e');
       }
     }
   }

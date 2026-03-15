@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-/// UDP broadcast beacon for co-op host discovery.
+/// UDP beacon for co-op host discovery.
+/// Uses both broadcast (255.255.255.255) and multicast (239.42.42.42)
+/// for maximum reliability across different WiFi configurations.
 /// Beacon format: TYRIAN_COOP|tcp_port|pilotName
 class CoopDiscovery {
   static const int discoveryPort = 5742;
   static const String _prefix = 'TYRIAN_COOP';
+  static const String _multicastGroup = '239.42.42.42';
 
   RawDatagramSocket? _socket;
   Timer? _broadcastTimer;
@@ -24,11 +27,20 @@ class CoopDiscovery {
 
     final beacon = '$_prefix|$tcpPort|$pilotName';
     final data = Uint8List.fromList(beacon.codeUnits);
+    final broadcastDest = InternetAddress('255.255.255.255');
+    final multicastDest = InternetAddress(_multicastGroup);
 
-    _broadcastTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      try {
-        _socket?.send(data, InternetAddress('255.255.255.255'), discoveryPort);
-      } catch (_) {}
+    void sendBeacon() {
+      try { _socket?.send(data, broadcastDest, discoveryPort); } catch (_) {}
+      try { _socket?.send(data, multicastDest, discoveryPort); } catch (_) {}
+    }
+
+    print('Discovery: broadcasting on port $discoveryPort (tcp=$tcpPort, pilot=$pilotName)');
+    sendBeacon();
+
+    // Broadcast every 500ms for faster discovery
+    _broadcastTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      sendBeacon();
     });
   }
 
@@ -36,6 +48,14 @@ class CoopDiscovery {
   Future<void> startListening() async {
     _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, discoveryPort,
         reuseAddress: true, reusePort: true);
+
+    // Join multicast group for more reliable cross-device discovery
+    try {
+      _socket!.joinMulticast(InternetAddress(_multicastGroup));
+      print('Discovery: listening on port $discoveryPort (multicast joined)');
+    } catch (e) {
+      print('Discovery: listening on port $discoveryPort (multicast failed: $e)');
+    }
 
     _socket!.listen((event) {
       if (event == RawSocketEvent.read) {
@@ -54,6 +74,7 @@ class CoopDiscovery {
         final pilotName = parts[2];
         final ip = dg.address.address;
 
+        print('Discovery: received beacon from $ip:$port ($pilotName)');
         hosts[ip] = (port: port, pilotName: pilotName, lastSeen: DateTime.now());
         onHostsChanged?.call();
       }

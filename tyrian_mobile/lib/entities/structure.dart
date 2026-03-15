@@ -15,6 +15,9 @@ enum StructType { basic, asteroid }
 /// Ported from Structure.cls — obstacles/asteroids.
 class Structure extends PositionComponent
     with HasGameReference<TyrianGame>, CollisionCallbacks {
+  static int _nextId = 0;
+  late final int id = _nextId++;
+
   String caption;
   StructBehavior behavior;
   StructType structType;
@@ -33,6 +36,7 @@ class Structure extends PositionComponent
 
   Sprite? _sprite;
   final String? _imgName;
+  String get imgName => _imgName ?? '';
 
   bool get isDead => hp <= 0;
 

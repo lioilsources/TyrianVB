@@ -6,6 +6,8 @@ import 'protocol.dart';
 
 /// TCP server for co-op host. Manages a single client connection.
 class CoopHost {
+  static const int defaultPort = 5743;
+
   ServerSocket? _server;
   Socket? _client;
   final MessageFramer _framer = MessageFramer();
@@ -16,18 +18,23 @@ class CoopHost {
 
   // Callbacks
   void Function(double dx, double dy, bool fire)? onClientInput;
-  void Function(String pilotName)? onClientConnected;
+  Future<void> Function(String pilotName)? onClientConnected;
   void Function()? onClientDisconnected;
   void Function()? onClientReady;
   void Function(int action, int slot, String weaponName)? onShopAction;
 
   String _hostPilotName = 'Host';
 
-  /// Start listening on any available port
+  /// Start listening on fixed port (fallback to random if busy)
   Future<int> start(String hostPilotName) async {
     _hostPilotName = hostPilotName;
-    _server = await ServerSocket.bind(InternetAddress.anyIPv4, 0);
+    try {
+      _server = await ServerSocket.bind(InternetAddress.anyIPv4, defaultPort);
+    } catch (_) {
+      _server = await ServerSocket.bind(InternetAddress.anyIPv4, 0);
+    }
     _server!.listen(_onConnection);
+    print('Host: TCP server on port ${_server!.port}');
     return _server!.port;
   }
 
@@ -38,6 +45,7 @@ class CoopHost {
       return;
     }
 
+    print('Host: client connected from ${socket.remoteAddress.address}');
     _client = socket;
     socket.setOption(SocketOption.tcpNoDelay, true);
 
@@ -45,30 +53,34 @@ class CoopHost {
       (data) => _onData(Uint8List.fromList(data)),
       onDone: _onClientDone,
       onError: (_) => _onClientDone(),
-      cancelOnError: true,
+      cancelOnError: false,
     );
   }
 
-  void _onData(Uint8List data) {
+  Future<void> _onData(Uint8List data) async {
     final messages = _framer.addData(data);
     for (final (type, payload) in messages) {
-      switch (type) {
-        case MsgType.clientInput:
-          final input = decodeClientInput(payload);
-          onClientInput?.call(input.dx, input.dy, input.fire);
+      try {
+        switch (type) {
+          case MsgType.clientInput:
+            final input = decodeClientInput(payload);
+            onClientInput?.call(input.dx, input.dy, input.fire);
 
-        case MsgType.lobbyHandshake:
-          final hs = decodeLobbyHandshake(payload);
-          // Send our handshake back
-          _client?.add(encodeLobbyHandshake(_hostPilotName));
-          onClientConnected?.call(hs.pilotName);
+          case MsgType.lobbyHandshake:
+            final hs = decodeLobbyHandshake(payload);
+            // Send our handshake back
+            _client?.add(encodeLobbyHandshake(_hostPilotName));
+            await onClientConnected?.call(hs.pilotName);
 
-        case MsgType.readySignal:
-          onClientReady?.call();
+          case MsgType.readySignal:
+            onClientReady?.call();
 
-        case MsgType.shopAction:
-          final sa = decodeShopAction(payload);
-          onShopAction?.call(sa.action, sa.slot, sa.weaponName);
+          case MsgType.shopAction:
+            final sa = decodeShopAction(payload);
+            onShopAction?.call(sa.action, sa.slot, sa.weaponName);
+        }
+      } catch (e) {
+        print('CoopHost._onData error: $e');
       }
     }
   }

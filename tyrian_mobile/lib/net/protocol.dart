@@ -20,6 +20,7 @@ class EventType {
   static const int paused = 5;
   static const int resumed = 6;
   static const int gameStart = 7;
+  static const int playerJoined = 8;
 }
 
 /// Shop action sub-types
@@ -315,6 +316,28 @@ class BeamSnap {
   });
 }
 
+// StructSnap: id(uint16) + x,y(float64) + sizeX,sizeY(float32) + hp(int32) + hit(uint8)
+//   + structType(uint8) + imgNameLen(uint8) + imgName(variable)
+// Fixed part = 2+8+8+4+4+4+1+1+1 = 33 bytes + imgName bytes
+
+class StructSnap {
+  final int id;
+  final double x, y;
+  final double sizeX, sizeY;
+  final int hp;
+  final int hit;
+  final int structType;
+  final String imgName;
+
+  StructSnap({
+    required this.id,
+    required this.x, required this.y,
+    required this.sizeX, required this.sizeY,
+    required this.hp, required this.hit,
+    required this.structType, required this.imgName,
+  });
+}
+
 /// Full game state snapshot (decoded)
 class GameSnapshot {
   final int gameState;
@@ -327,6 +350,7 @@ class GameSnapshot {
   final List<ProjSnap> playerProjectiles;
   final List<CollSnap> collectables;
   final List<BeamSnap> beams;
+  final List<StructSnap> structures;
 
   GameSnapshot({
     required this.gameState,
@@ -339,6 +363,7 @@ class GameSnapshot {
     required this.playerProjectiles,
     required this.collectables,
     required this.beams,
+    required this.structures,
   });
 }
 
@@ -357,22 +382,21 @@ Uint8List encodeGameSnapshot({
   required List<ProjSnap> playerProjs,
   required List<CollSnap> collectables,
   required List<BeamSnap> beams,
+  List<StructSnap> structures = const [],
 }) {
-  // Header: gameState(1) + sectorIndex(2) + elapsed(8) = 11
-  // + 2 * vesselSnap(67) = 134
-  // + hostile header(2) + hostiles
-  // + enemyProj header(2) + projs
-  // + playerProj header(2) + projs
-  // + coll header(2) + colls
-  // + beam header(2) + beams
   final headerSize = 11 + 2 * _vesselSnapSize;
   final hostileSize = 2 + hostiles.length * _hostileSnapSize;
   final enemyProjSize = 2 + enemyProjs.length * _projSnapSize;
   final playerProjSize = 2 + playerProjs.length * _projSnapSize;
   final collSize = 2 + collectables.length * _collSnapSize;
   final beamSize = 2 + beams.length * _beamSnapSize;
+  // Structures: count(2) + per-struct(33 fixed + variable imgName)
+  int structSize = 2;
+  for (final s in structures) {
+    structSize += 33 + s.imgName.codeUnits.length;
+  }
 
-  final totalSize = headerSize + hostileSize + enemyProjSize + playerProjSize + collSize + beamSize;
+  final totalSize = headerSize + hostileSize + enemyProjSize + playerProjSize + collSize + beamSize + structSize;
   final payload = Uint8List(totalSize);
   final bd = ByteData.sublistView(payload);
   int off = 0;
@@ -446,6 +470,22 @@ Uint8List encodeGameSnapshot({
     bd.setFloat64(off, b.dx, Endian.big); off += 8;
     bd.setFloat64(off, b.dy, Endian.big); off += 8;
     payload[off] = b.active ? 1 : 0; off += 1;
+  }
+
+  // Structures
+  bd.setUint16(off, structures.length, Endian.big); off += 2;
+  for (final s in structures) {
+    bd.setUint16(off, s.id, Endian.big); off += 2;
+    bd.setFloat64(off, s.x, Endian.big); off += 8;
+    bd.setFloat64(off, s.y, Endian.big); off += 8;
+    bd.setFloat32(off, s.sizeX, Endian.big); off += 4;
+    bd.setFloat32(off, s.sizeY, Endian.big); off += 4;
+    bd.setInt32(off, s.hp, Endian.big); off += 4;
+    payload[off] = s.hit; off += 1;
+    payload[off] = s.structType; off += 1;
+    final nameBytes = s.imgName.codeUnits;
+    payload[off] = nameBytes.length; off += 1;
+    payload.setRange(off, off + nameBytes.length, nameBytes); off += nameBytes.length;
   }
 
   return frameMessage(MsgType.gameStateSnapshot, payload);
@@ -530,6 +570,29 @@ GameSnapshot decodeGameSnapshot(Uint8List payload) {
     beamsOut.add(BeamSnap(sx: sx, sy: sy, dx: dxv, dy: dyv, active: active));
   }
 
+  // Structures (optional — absent in older snapshots)
+  final structsOut = <StructSnap>[];
+  if (off < payload.length) {
+    final structCount = bd.getUint16(off, Endian.big); off += 2;
+    for (int i = 0; i < structCount; i++) {
+      final id = bd.getUint16(off, Endian.big); off += 2;
+      final x = bd.getFloat64(off, Endian.big); off += 8;
+      final y = bd.getFloat64(off, Endian.big); off += 8;
+      final sizeX = bd.getFloat32(off, Endian.big); off += 4;
+      final sizeY = bd.getFloat32(off, Endian.big); off += 4;
+      final hp = bd.getInt32(off, Endian.big); off += 4;
+      final hit = payload[off]; off += 1;
+      final structType = payload[off]; off += 1;
+      final nameLen = payload[off]; off += 1;
+      final imgName = String.fromCharCodes(payload, off, off + nameLen); off += nameLen;
+      structsOut.add(StructSnap(
+        id: id, x: x, y: y,
+        sizeX: sizeX.toDouble(), sizeY: sizeY.toDouble(),
+        hp: hp, hit: hit, structType: structType, imgName: imgName,
+      ));
+    }
+  }
+
   return GameSnapshot(
     gameState: gameState,
     sectorIndex: sectorIndex,
@@ -541,6 +604,7 @@ GameSnapshot decodeGameSnapshot(Uint8List payload) {
     playerProjectiles: playerProjs,
     collectables: collectables,
     beams: beamsOut,
+    structures: structsOut,
   );
 }
 
