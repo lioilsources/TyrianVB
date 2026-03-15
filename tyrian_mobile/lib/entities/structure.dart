@@ -15,6 +15,9 @@ enum StructType { basic, asteroid }
 /// Ported from Structure.cls — obstacles/asteroids.
 class Structure extends PositionComponent
     with HasGameReference<TyrianGame>, CollisionCallbacks {
+  static int _nextId = 0;
+  late final int id = _nextId++;
+
   String caption;
   StructBehavior behavior;
   StructType structType;
@@ -33,6 +36,7 @@ class Structure extends PositionComponent
 
   Sprite? _sprite;
   final String? _imgName;
+  String get imgName => _imgName ?? '';
 
   bool get isDead => hp <= 0;
 
@@ -65,6 +69,8 @@ class Structure extends PositionComponent
   @override
   void update(double dt) {
     if (isDead) return;
+    // Client: positions set by snapshot, skip all game logic
+    if (game.coopRole == CoopRole.client) return;
 
     final scaledDt = dt * config.originalFps;
 
@@ -72,13 +78,13 @@ class Structure extends PositionComponent
       case StructBehavior.fall:
         position.y += config.structureFallSpeed / config.originalFps * scaledDt;
       case StructBehavior.follow:
-        // Track player X position
-        final targetX = game.vessel.position.x;
-        position.x += (targetX - position.x - size.x / 2) * 0.02 * scaledDt;
+        // Track nearest visible vessel X position
+        final targetX1 = game.nearestVesselX(position.x, position.y);
+        position.x += (targetX1 - position.x - size.x / 2) * 0.02 * scaledDt;
       case StructBehavior.fallAndFollow:
         position.y += config.structureFallSpeed / config.originalFps * scaledDt;
-        final targetX = game.vessel.position.x;
-        position.x += (targetX - position.x - size.x / 2) * 0.02 * scaledDt;
+        final targetX2 = game.nearestVesselX(position.x, position.y);
+        position.x += (targetX2 - position.x - size.x / 2) * 0.02 * scaledDt;
       case StructBehavior.byPath:
         if (trace != null && trace!.current != null) {
           position.setValues(trace!.current!.x, trace!.current!.y);
@@ -112,16 +118,17 @@ class Structure extends PositionComponent
 
   void _checkPlayerCollision() {
     if (structType != StructType.asteroid) return;
-    final vessel = game.vessel;
-    if (!vessel.visible) return;
+    for (final vessel in game.allVessels) {
+      if (!vessel.visible) continue;
 
-    if (position.x < vessel.position.x + vessel.size.x / 2 &&
-        x2 > vessel.position.x - vessel.size.x / 2 &&
-        position.y < vessel.position.y + vessel.size.y / 2 &&
-        y2 > vessel.position.y - vessel.size.y / 2) {
-      vessel.takeDamage(collisionDmg);
-      // VB6: push player below asteroid
-      vessel.position.y = y2 + vessel.size.y / 2;
+      if (position.x < vessel.position.x + vessel.size.x / 2 &&
+          x2 > vessel.position.x - vessel.size.x / 2 &&
+          position.y < vessel.position.y + vessel.size.y / 2 &&
+          y2 > vessel.position.y - vessel.size.y / 2) {
+        vessel.takeDamage(collisionDmg);
+        // VB6: push player below asteroid
+        vessel.position.y = y2 + vessel.size.y / 2;
+      }
     }
   }
 
@@ -134,18 +141,27 @@ class Structure extends PositionComponent
   void render(Canvas canvas) {
     if (isDead) return;
 
+    final bounds = Rect.fromLTWH(0, 0, size.x, size.y);
+
+    if (hit > 0) {
+      canvas.saveLayer(bounds, Paint());
+    }
+
     if (_sprite != null) {
       _sprite!.render(canvas, size: size);
     } else {
       final paint = Paint()..color = const Color(0xFF888888);
-      canvas.drawOval(Rect.fromLTWH(0, 0, size.x, size.y), paint);
+      canvas.drawOval(bounds, paint);
     }
 
     if (hit > 0) {
-      final flashPaint = Paint()
-        ..color = const Color(0x80FFFFFF)
-        ..blendMode = BlendMode.srcATop;
-      canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), flashPaint);
+      canvas.drawRect(
+        bounds,
+        Paint()
+          ..color = const Color(0x80FFFFFF)
+          ..blendMode = BlendMode.srcATop,
+      );
+      canvas.restore();
     }
   }
 }

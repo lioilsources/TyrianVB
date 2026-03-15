@@ -35,8 +35,10 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   flame: ^1.35.1
+  flame_audio: ^2.10.0
   shared_preferences: ^2.5.4
   google_fonts: ^8.0.2
+  device_info_plus: ^12.3.0
 
 dev_dependencies:
   flutter_test:
@@ -62,8 +64,57 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/sprites/
-    - assets/ui/
+    - assets/skins/default/sprites/
+    - assets/skins/default/ui/
+    - assets/skins/default/sfx/
+    - assets/skins/geometry_wars/sprites/
+    - assets/skins/geometry_wars/ui/
+    - assets/skins/geometry_wars/sfx/
+    - assets/skins/geometry_wars/backgrounds/
+    - assets/skins/space_invaders/sprites/
+    - assets/skins/space_invaders/ui/
+    - assets/skins/space_invaders/sfx/
+    - assets/skins/space_invaders/backgrounds/
+    - assets/skins/galaga/sprites/
+    - assets/skins/galaga/ui/
+    - assets/skins/galaga/sfx/
+    - assets/skins/galaga/backgrounds/
+    - assets/skins/asteroids/sprites/
+    - assets/skins/asteroids/ui/
+    - assets/skins/asteroids/sfx/
+    - assets/skins/asteroids/backgrounds/
+    - assets/skins/ikaruga/sprites/
+    - assets/skins/ikaruga/ui/
+    - assets/skins/ikaruga/sfx/
+    - assets/skins/ikaruga/backgrounds/
+    - assets/skins/nuclear_throne/sprites/
+    - assets/skins/nuclear_throne/ui/
+    - assets/skins/nuclear_throne/sfx/
+    - assets/skins/nuclear_throne/backgrounds/
+    - assets/skins/luftrausers/sprites/
+    - assets/skins/luftrausers/ui/
+    - assets/skins/luftrausers/sfx/
+    - assets/skins/luftrausers/backgrounds/
+    - assets/skins/nex_machina/sprites/
+    - assets/skins/nex_machina/ui/
+    - assets/skins/nex_machina/sfx/
+    - assets/skins/nex_machina/backgrounds/
+    - assets/skins/tyrian_dos/sprites/
+    - assets/skins/tyrian_dos/ui/
+    - assets/skins/tyrian_dos/sfx/
+    - assets/skins/tyrian_dos/backgrounds/
+    - assets/skins/gradius_v/sprites/
+    - assets/skins/gradius_v/ui/
+    - assets/skins/gradius_v/sfx/
+    - assets/skins/gradius_v/backgrounds/
+    - assets/skins/rtype/sprites/
+    - assets/skins/rtype/ui/
+    - assets/skins/rtype/sfx/
+    - assets/skins/rtype/backgrounds/
+    - assets/skins/blazing_lazers/sprites/
+    - assets/skins/blazing_lazers/ui/
+    - assets/skins/blazing_lazers/sfx/
+    - assets/skins/blazing_lazers/backgrounds/
     - assets/fonts/
 
   # To add custom fonts to your application, add a fonts section here,

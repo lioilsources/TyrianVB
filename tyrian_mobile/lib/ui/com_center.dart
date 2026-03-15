@@ -26,6 +26,8 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
   int _selectedWeaponIndex = 0;
 
   TyrianGame get game => widget.game;
+
+  /// Always P1's vessel (P2 has no ComCenter)
   Vessel get vessel => game.vessel;
 
   /// Weapons filtered by score-based unlock tier (VB6 WepLevScores)
@@ -71,8 +73,8 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'COMMAND CENTER',
@@ -83,13 +85,32 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
               letterSpacing: 3,
             ),
           ),
-          Text(
-            'Credits: ${vessel.credit}',
-            style: const TextStyle(
-              color: Colors.greenAccent,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                'Credits: ${vessel.credit}',
+                style: const TextStyle(
+                  color: Colors.greenAccent,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (game.isCoop && game.vessel2 != null) ...[
+                const SizedBox(width: 12),
+                Text(
+                  'P2: ${game.vessel2!.pilotName}',
+                  style: const TextStyle(color: Color(0xFF00FF80), fontSize: 13),
+                ),
+              ],
+              if (game.coopRole == CoopRole.host && game.hostIp != null) ...[
+                const Spacer(),
+                Text(
+                  'IP: ${game.hostIp}',
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -363,12 +384,10 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
   void _buyWeapon(DevType weapon) {
     if (vessel.credit < weapon.price) return;
 
-    // Determine slot
     WeaponSlot slot;
     if (_selectedCategory == 0) {
       slot = WeaponSlot.frontGun;
     } else {
-      // Check which side slot is free
       final hasLeft = vessel.devices.any((d) => d.slot == WeaponSlot.leftGun);
       slot = hasLeft ? WeaponSlot.rightGun : WeaponSlot.leftGun;
     }
@@ -396,6 +415,8 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
   }
 
   Widget _buildBottomBar() {
+    final label = game.currentSectorIndex == 0 ? 'START MISSION' : 'CONTINUE MISSION';
+
     return Padding(
       padding: const EdgeInsets.all(12),
       child: SizedBox(
@@ -408,7 +429,7 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
           child: Text(
-            game.currentSectorIndex == 0 ? 'START MISSION' : 'CONTINUE MISSION',
+            label,
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,

@@ -1,17 +1,58 @@
-# tyrian_mobile
+# Tyrian 2026
 
-A new Flutter project.
+## Proces: nový skin od A do Z
 
-## Getting Started
+1. **Vygeneruj AI assety (xAI Grok)**  
+   32 JPEGů x N variací.
 
-This project is a starting point for a Flutter application.
+```bash
+cd /Volumes/YOTTA/Dev/TyrianVB/pipeline
+go run ./cmd/generate -skin geometry_wars -n 4
+```
 
-A few resources to get you started if this is your first Flutter project:
+2. **Postprocess obrázků**  
+   JPG -> PNG s alpha, resize, přejmenování.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+go run ./cmd/postprocess -skin geometry_wars
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+3. **Hotovo**  
+   Assety jsou rovnou v `tyrian_mobile/assets/skins/geometry_wars/`.
+
+Ověř:
+
+```bash
+ls tyrian_mobile/assets/skins/geometry_wars/sprites/
+ls tyrian_mobile/assets/skins/geometry_wars/ui/preview.png
+```
+
+4. **Spusť na iPadu**
+
+```bash
+cd /Volumes/YOTTA/Dev/TyrianVB/tyrian_mobile
+flutter run
+```
+
+## Postprocess MP3 -> OGG
+
+```bash
+go run ./cmd/postprocess \
+  -skin geometry_wars \
+  -input /Volumes/YOTTA/Dev/TyrianVB/pipeline/output/assets/skins \
+  -output /Volumes/YOTTA/Dev/TyrianVB/tyrian_mobile/assets/skins
+```
+
+# Skins
+- Nuclear Throne
+- Luftrausers
+- Nech Machina
+- Geometry Wars
+- Tyrion
+- Gradius V
+- R-Type
+- Blazing Lazers
+- Ikaruga
+- Galaga
+- Space Invaders
+- Asteroids

@@ -1,0 +1,359 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2026-03-15T21:54:44Z",
+  "model": "grok-imagine-image",
+  "skin": {
+    "id": "nuclear_throne",
+    "name": "Wasteland Mutant",
+    "sprite_size": 24,
+    "frame_count": 4,
+    "post_process": "film_grain",
+    "google_font": "Silkscreen"
+  },
+  "assets": [
+    {
+      "name": "ship_frames",
+      "type": "ship",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "explosion",
+      "type": "explosion",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "laser",
+      "type": "bullet",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "bubble",
+      "type": "bullet",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "vulcan",
+      "type": "bullet",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "blaster",
+      "type": "bullet",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "starg",
+      "type": "bullet",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "falcon",
+      "type": "enemy",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "falcon1",
+      "type": "enemy",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "falcon2",
+      "type": "enemy",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "falcon3",
+      "type": "enemy",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "falcon4",
+      "type": "enemy",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "falcon5",
+      "type": "enemy",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "falcon6",
+      "type": "enemy",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "falconx",
+      "type": "enemy",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "falconx2",
+      "type": "enemy",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "falconx3",
+      "type": "enemy",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "falconxb",
+      "type": "enemy",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "falconxt",
+      "type": "enemy",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "bouncer",
+      "type": "enemy",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "asteroid",
+      "type": "structure",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "asteroid1",
+      "type": "structure",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "asteroid2",
+      "type": "structure",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "asteroid3",
+      "type": "structure",
+      "dir": "sprites",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "layer_0",
+      "type": "background",
+      "dir": "backgrounds",
+      "aspect_ratio": "1:2",
+      "resolution": "2k",
+      "variations": 4
+    },
+    {
+      "name": "layer_1",
+      "type": "background",
+      "dir": "backgrounds",
+      "aspect_ratio": "1:2",
+      "resolution": "2k",
+      "variations": 4
+    },
+    {
+      "name": "layer_2",
+      "type": "background",
+      "dir": "backgrounds",
+      "aspect_ratio": "1:2",
+      "resolution": "2k",
+      "variations": 4
+    },
+    {
+      "name": "layer_3",
+      "type": "background",
+      "dir": "backgrounds",
+      "aspect_ratio": "1:2",
+      "resolution": "2k",
+      "variations": 4
+    },
+    {
+      "name": "icon_life",
+      "type": "hud_icon",
+      "dir": "ui",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "icon_bomb",
+      "type": "hud_icon",
+      "dir": "ui",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "icon_shield",
+      "type": "hud_icon",
+      "dir": "ui",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "preview",
+      "type": "preview",
+      "dir": "ui",
+      "aspect_ratio": "1:1",
+      "resolution": "1k",
+      "variations": 4
+    },
+    {
+      "name": "explosion_large",
+      "type": "sfx",
+      "dir": "sfx",
+      "aspect_ratio": "",
+      "resolution": "",
+      "variations": 4
+    },
+    {
+      "name": "explosion_small",
+      "type": "sfx",
+      "dir": "sfx",
+      "aspect_ratio": "",
+      "resolution": "",
+      "variations": 4
+    },
+    {
+      "name": "fire_beam",
+      "type": "sfx",
+      "dir": "sfx",
+      "aspect_ratio": "",
+      "resolution": "",
+      "variations": 4
+    },
+    {
+      "name": "fire_bullet",
+      "type": "sfx",
+      "dir": "sfx",
+      "aspect_ratio": "",
+      "resolution": "",
+      "variations": 4
+    },
+    {
+      "name": "game_over",
+      "type": "sfx",
+      "dir": "sfx",
+      "aspect_ratio": "",
+      "resolution": "",
+      "variations": 4
+    },
+    {
+      "name": "hit_hull",
+      "type": "sfx",
+      "dir": "sfx",
+      "aspect_ratio": "",
+      "resolution": "",
+      "variations": 4
+    },
+    {
+      "name": "hit_shield",
+      "type": "sfx",
+      "dir": "sfx",
+      "aspect_ratio": "",
+      "resolution": "",
+      "variations": 4
+    },
+    {
+      "name": "pickup",
+      "type": "sfx",
+      "dir": "sfx",
+      "aspect_ratio": "",
+      "resolution": "",
+      "variations": 4
+    },
+    {
+      "name": "sector_complete",
+      "type": "sfx",
+      "dir": "sfx",
+      "aspect_ratio": "",
+      "resolution": "",
+      "variations": 4
+    },
+    {
+      "name": "weapon_unlock",
+      "type": "sfx",
+      "dir": "sfx",
+      "aspect_ratio": "",
+      "resolution": "",
+      "variations": 4
+    }
+  ],
+  "directories": [
+    "sprites",
+    "backgrounds",
+    "ui",
+    "sfx",
+    "music",
+    "shaders"
+  ]
+}
