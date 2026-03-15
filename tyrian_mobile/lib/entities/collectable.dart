@@ -3,6 +3,7 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import '../game/game_config.dart' as config;
 import '../game/tyrian_game.dart';
+import '../services/sound_service.dart';
 import '../systems/path_system.dart';
 import '../systems/dev_type.dart';
 import 'vessel.dart';
@@ -113,6 +114,7 @@ class Collectable extends PositionComponent
         break;
     }
 
+    SoundService.instance.play(SfxEvent.pickup);
     game.removeCollectable(this);
   }
 

@@ -1,6 +1,7 @@
 import 'package:flame/components.dart';
 import '../game/game_config.dart' as config;
 import '../game/tyrian_game.dart';
+import '../services/sound_service.dart';
 import 'dev_type.dart';
 import '../entities/projectile.dart';
 import '../entities/vessel.dart';
@@ -109,8 +110,11 @@ class Device {
 
     if (beam > 0) {
       beamActive = seqs;
+      SoundService.instance.play(SfxEvent.fireBeam);
       return;
     }
+
+    SoundService.instance.play(SfxEvent.fireBullet);
 
     // Calculate spawn position based on slot
     double px, py;

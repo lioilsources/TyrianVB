@@ -4,6 +4,7 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import '../game/game_config.dart' as config;
 import '../game/tyrian_game.dart';
+import '../services/sound_service.dart';
 import '../systems/device.dart';
 import '../systems/dev_type.dart';
 import '../services/asset_library.dart';
@@ -14,6 +15,7 @@ import 'collectable.dart';
 class Vessel extends PositionComponent
     with HasGameReference<TyrianGame>, CollisionCallbacks {
   String pilotName = 'Pilot';
+  int playerIndex; // 0=P1, 1=P2
 
   // Stats (VB6 Vessel.cls ResetVessel defaults)
   int hp = 125;
@@ -42,24 +44,45 @@ class Vessel extends PositionComponent
   // DPS tracking for random sector scaling (VB6 rocket.lastMaxDps)
   double lastMaxDps = 0;
 
-  // Sprite
+  // Sprite / animation
   Sprite? _sprite;
+  List<Sprite> _frames = [];
+  int _frameIndex = 0;
+  int _frameDir = 1; // +1 forward, -1 backward (ping-pong)
+  double _frameTimer = 0;
+  static const _frameDuration = 0.12; // seconds per frame
   bool visible = true;
 
-  Vessel() : super(anchor: Anchor.center);
+  Vessel({this.playerIndex = 0}) : super(anchor: Anchor.center);
 
   Future<void> init() async {
-    _sprite = AssetLibrary.instance.getSprite('vessel');
-    if (_sprite != null) {
-      size = _sprite!.srcSize;
-    } else {
-      size = Vector2(50, 40);
-    }
+    _loadFrames();
 
     add(RectangleHitbox());
 
     // Default weapon: Bubble Gun
     equipWeapon(DevType.bubbleGun, WeaponSlot.frontGun);
+  }
+
+  void _loadFrames() {
+    _frames = List.of(AssetLibrary.instance.vesselFrames);
+    if (_frames.isNotEmpty) {
+      _sprite = _frames[0];
+      _frameIndex = 0;
+      _frameDir = 1;
+    } else {
+      _sprite = AssetLibrary.instance.getSprite('vessel');
+    }
+    if (_sprite != null) {
+      size = _sprite!.srcSize;
+    } else {
+      size = Vector2(50, 40);
+    }
+  }
+
+  /// Re-fetch sprites from AssetLibrary after a skin change.
+  void refreshSprite() {
+    _loadFrames();
   }
 
   void resetPosition() {
@@ -72,6 +95,7 @@ class Vessel extends PositionComponent
     genValue = genMax;
     dmgTaken = 0;
     fire = false;
+    visible = true;
     for (final d in devices) {
       d.clearProjectiles();
     }
@@ -140,6 +164,26 @@ class Vessel extends PositionComponent
   @override
   void update(double dt) {
     if (!visible) return;
+
+    // Animate sprite frames (runs on both host and client)
+    if (_frames.length > 1) {
+      _frameTimer += dt;
+      if (_frameTimer >= _frameDuration) {
+        _frameTimer -= _frameDuration;
+        _frameIndex += _frameDir;
+        if (_frameIndex >= _frames.length - 1) {
+          _frameIndex = _frames.length - 1;
+          _frameDir = -1;
+        } else if (_frameIndex <= 0) {
+          _frameIndex = 0;
+          _frameDir = 1;
+        }
+        _sprite = _frames[_frameIndex];
+      }
+    }
+
+    // Client: positions set by snapshot, skip all game logic
+    if (game.coopRole == CoopRole.client) return;
 
     final scaledDt = dt * config.originalFps;
 
@@ -271,9 +315,9 @@ class Vessel extends PositionComponent
         if (h.isDead) continue;
         if (_aabbOverlap(px1, py1, px2, py2,
             h.position.x, h.position.y, h.x2, h.y2)) {
-          h.takeDamage(d.damage, game);
+          h.takeDamage(d.damage, game, attacker: this);
           if (h.isDead) {
-            fleet.onHostileKilled(h, game);
+            fleet.onHostileKilled(h, game, attacker: this);
           }
           return true; // Projectile consumed
         }
@@ -297,9 +341,9 @@ class Vessel extends PositionComponent
   void _processBeamCollision(Device d) {
     // Beam hits closest enemy continuously
     if (closestEnemy != null && !closestEnemy!.isDead) {
-      closestEnemy!.takeDamage(d.damage, game);
+      closestEnemy!.takeDamage(d.damage, game, attacker: this);
       if (closestEnemy!.isDead) {
-        closestEnemy!.parentFleet?.onHostileKilled(closestEnemy!, game);
+        closestEnemy!.parentFleet?.onHostileKilled(closestEnemy!, game, attacker: this);
       }
     }
   }
@@ -317,13 +361,25 @@ class Vessel extends PositionComponent
       final absorbed = min(shield, amount.toDouble());
       shield -= absorbed;
       amount -= absorbed.toInt();
+      if (amount <= 0) {
+        SoundService.instance.play(SfxEvent.hitShield);
+      }
+    }
+    if (amount > 0) {
+      SoundService.instance.play(SfxEvent.hitHull);
     }
     hp -= amount;
     dmgTaken = 4; // Flash frames
 
     if (hp <= 0) {
       hp = 0;
-      game.triggerGameOver();
+      if (game.isCoop) {
+        visible = false;
+        fire = false;
+        game.checkCoopGameOver();
+      } else {
+        game.triggerGameOver();
+      }
     }
   }
 
@@ -374,6 +430,7 @@ class Vessel extends PositionComponent
       nextWeaponLevel++;
       const roman = ['', 'I', 'II', 'III', 'IV'];
       game.showMessage('Weapon level ${roman[nextWeaponLevel]} unlocked');
+      SoundService.instance.play(SfxEvent.weaponUnlock);
     }
   }
 
@@ -412,29 +469,43 @@ class Vessel extends PositionComponent
     return total;
   }
 
+  // P2 tint: modulate keeps alpha intact, tints RGB toward green
+  static final _p2Paint = Paint()
+    ..colorFilter = const ColorFilter.mode(Color(0xFF80FFA0), BlendMode.modulate);
+
   @override
   void render(Canvas canvas) {
     if (!visible) return;
 
+    final paint = playerIndex == 1 ? _p2Paint : null;
+    final bounds = Rect.fromLTWH(0, 0, size.x, size.y);
+
+    if (dmgTaken > 0) {
+      // Save layer so srcATop only affects sprite pixels, not the full rect
+      canvas.saveLayer(bounds, Paint());
+    }
+
     if (_sprite != null) {
-      _sprite!.render(canvas, size: size);
+      _sprite!.render(canvas, size: size, overridePaint: paint);
     } else {
-      // Placeholder triangle
-      final paint = Paint()..color = const Color(0xFF00FFFF);
+      final color = playerIndex == 1 ? const Color(0xFF00FF80) : const Color(0xFF00FFFF);
+      final p = Paint()..color = color;
       final path = Path()
         ..moveTo(size.x / 2, 0)
         ..lineTo(0, size.y)
         ..lineTo(size.x, size.y)
         ..close();
-      canvas.drawPath(path, paint);
+      canvas.drawPath(path, p);
     }
 
-    // Damage flash — red tint
     if (dmgTaken > 0) {
-      final flashPaint = Paint()
-        ..color = Color.fromARGB(100, 255, 0, 0)
-        ..blendMode = BlendMode.srcATop;
-      canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), flashPaint);
+      canvas.drawRect(
+        bounds,
+        Paint()
+          ..color = Color.fromARGB(100, 255, 0, 0)
+          ..blendMode = BlendMode.srcATop,
+      );
+      canvas.restore();
     }
   }
 
