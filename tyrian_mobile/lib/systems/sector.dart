@@ -170,8 +170,8 @@ class Sector extends Component with HasGameReference<TyrianGame> {
       id: 4, enterTime: 52, caption: 'Asteroid miner escort',
       hostType: HostType.falcon3, count: 15, bonus: CollType.bonusCredit,
       triggerSteps: 72, durationSec: 27, bonusMoney: 1000,
-      srcX: 300, srcY: -45, dstX: 1100, dstY: h + 5,
-      pathType: PathType.cosinus, amplitude: 250, cycles: 10, amplMultiplier: 0.9991,
+      srcX: 300, srcY: -45, dstX: w - 40, dstY: h + 5,
+      pathType: PathType.cosinus, amplitude: 130, cycles: 10, amplMultiplier: 0.9991,
     );
     f4.addWeapon(10, 300);
     s.fleets.add(f4);
@@ -187,7 +187,7 @@ class Sector extends Component with HasGameReference<TyrianGame> {
       hostType: HostType.falcon4, count: 10, bonus: CollType.leftWepUpgrade,
       triggerSteps: 10, durationSec: 27,
       srcX: 0, srcY: -400, dstX: w - 400, dstY: h + 5,
-      pathType: PathType.sinCos, amplitude: 400, cycles: 10,
+      pathType: PathType.sinCos, amplitude: 200, cycles: 10,
     ));
     final f7 = Fleet.create(
       id: 7, enterTime: 123, caption: '',
@@ -303,13 +303,13 @@ class Sector extends Component with HasGameReference<TyrianGame> {
     final ep = PathSystem();
     ep.generate(300, 0, h, 0, -100, PathType.cosinus, amplitude: 100, cycles: 2);
     final seg2 = PathSystem();
-    seg2.generate(400, -100, 0, 1300, h, PathType.linear);
+    seg2.generate(400, -100, 0, w + 100, h, PathType.linear);
     ep.addPath(seg2);
     final seg3 = PathSystem();
-    seg3.generate(200, 1300, h, 680, 500, PathType.linear);
+    seg3.generate(200, w + 100, h, w * 0.58, h * 0.48, PathType.linear);
     ep.addPath(seg3);
     final seg4 = PathSystem();
-    seg4.generate(2000, 680, 500, 680, 200, PathType.linear);
+    seg4.generate(2000, w * 0.58, h * 0.48, w * 0.58, h * 0.19, PathType.linear);
     ep.addPath(seg4);
     ep.onExit = PathAction.stay;
     bossFleet.setExtraPath(ep);
@@ -383,7 +383,7 @@ class Sector extends Component with HasGameReference<TyrianGame> {
       id: 5, enterTime: 75, caption: '',
       hostType: HostType.falconx, count: 8, bonus: CollType.none,
       triggerSteps: 12, durationSec: 85,
-      srcX: 690, srcY: -200, dstX: w / 2 - 10, dstY: h + 200,
+      srcX: w * 0.59, srcY: -200, dstX: w / 2 - 10, dstY: h + 200,
       pathType: PathType.sinCos, amplitude: 300, cycles: 8,
     );
     s2f5.addWeapon(40, 350);

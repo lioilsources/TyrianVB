@@ -91,6 +91,10 @@ class TyrianGame extends FlameGame
   Future<void> onLoad() async {
     // Fill screen: keep width=600, adjust height for device aspect ratio
     config.gameHeight = config.gameWidth * (size.y / size.x);
+    // Safety: ensure game area is always portrait (height >= width)
+    if (config.gameHeight < config.gameWidth) {
+      config.gameHeight = config.gameWidth;
+    }
 
     camera.viewport = FixedResolutionViewport(
       resolution: Vector2(config.gameWidth, config.gameHeight),

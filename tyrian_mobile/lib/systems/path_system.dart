@@ -70,11 +70,11 @@ class PathSystem {
     final ax = (dx - sx) / steps;
     final ay = (dy - sy) / steps;
 
-    // Perpendicular normalized
+    // Direction vector normalized (VB6 Path.cls lines 55-56)
     double xs = 0, ys = 0;
     if (length > 0) {
-      xs = -(dy - sy) / length;
-      ys = (dx - sx) / length;
+      xs = (dx - sx) / length;
+      ys = (dy - sy) / length;
     }
 
     double cx = sx;
