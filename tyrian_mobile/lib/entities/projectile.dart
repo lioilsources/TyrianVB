@@ -62,10 +62,6 @@ class Projectile extends PositionComponent with HasGameReference {
   @override
   void render(canvas) {
     if (!active) return;
-
-    canvas.save();
-    platform.landscapeRotate(canvas, size);
-
     if (_sprite != null) {
       _sprite!.render(canvas, size: size);
     } else {
@@ -76,8 +72,6 @@ class Projectile extends PositionComponent with HasGameReference {
         paint,
       );
     }
-
-    canvas.restore();
   }
 
   void activate(double x, double y, double spd, double dmg, double scale) {

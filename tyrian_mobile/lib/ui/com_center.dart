@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../game/tyrian_game.dart';
 import '../game/platform_config.dart' as platform;
 import '../systems/dev_type.dart';
 import '../systems/device.dart';
 import '../entities/vessel.dart';
 import '../rendering/health_bar.dart';
+import '../input/gamepad_input.dart';
 
 /// Ported from ComCenter.cls — the shop/equipment screen.
 /// Implemented as a Flutter Material screen (not Flame).
@@ -27,21 +30,131 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
   int _selectedWeaponIndex = 0;
 
   TyrianGame get game => widget.game;
-
-  /// Always P1's vessel (P2 has no ComCenter)
   Vessel get vessel => game.vessel;
 
-  /// Weapons filtered by score-based unlock tier (VB6 WepLevScores)
-  /// Index maps to tier: 0=starter, 1=400k, 2=4M, 3=14M
   List<DevType> get currentWeapons {
     final all = _selectedCategory == 0 ? DevType.frontWeapons : DevType.sideWeapons;
     final maxIndex = vessel.nextWeaponLevel.clamp(0, all.length - 1);
     return all.sublist(0, maxIndex + 1);
   }
 
+  // Gamepad polling for menu navigation
+  final GamepadInput _gamepad = GamepadInput();
+  Timer? _pollTimer;
+  bool _prevUp = false, _prevDown = false;
+  bool _prevLeft = false, _prevRight = false;
+  bool _prevConfirm = false, _prevStart = false;
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    if (platform.isDesktop) {
+      _pollTimer = Timer.periodic(
+        const Duration(milliseconds: 16),
+        (_) => _pollGamepad(),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _pollGamepad() async {
+    await _gamepad.poll();
+    if (!mounted) return;
+    final gp = _gamepad.primary;
+
+    final up = gp.dpadUp || GamepadInput.deadzone(gp.leftStickY) < -0.5;
+    final down = gp.dpadDown || GamepadInput.deadzone(gp.leftStickY) > 0.5;
+    final left = gp.dpadLeft || GamepadInput.deadzone(gp.leftStickX) < -0.5;
+    final right = gp.dpadRight || GamepadInput.deadzone(gp.leftStickX) > 0.5;
+    final confirm = gp.buttonA || gp.buttonX;
+    final start = gp.start;
+
+    if (up && !_prevUp) _moveWeapon(-1);
+    if (down && !_prevDown) _moveWeapon(1);
+    if (left && !_prevLeft) _switchCategory(-1);
+    if (right && !_prevRight) _switchCategory(1);
+    if (confirm && !_prevConfirm) _confirmAction();
+    if (start && !_prevStart) widget.onStart();
+
+    _prevUp = up; _prevDown = down;
+    _prevLeft = left; _prevRight = right;
+    _prevConfirm = confirm; _prevStart = start;
+  }
+
+  void _moveWeapon(int delta) {
+    final weapons = currentWeapons;
+    if (weapons.isEmpty) return;
+    setState(() {
+      _selectedWeaponIndex = (_selectedWeaponIndex + delta).clamp(0, weapons.length - 1);
+    });
+  }
+
+  void _switchCategory(int delta) {
+    final newCat = (_selectedCategory + delta).clamp(0, 1);
+    if (newCat != _selectedCategory) {
+      setState(() {
+        _selectedCategory = newCat;
+        _selectedWeaponIndex = 0;
+      });
+    }
+  }
+
+  void _confirmAction() {
+    if (currentWeapons.isEmpty) return;
+    final weapon = currentWeapons[_selectedWeaponIndex];
+    final owned = vessel.devices.any((d) => d.name == weapon.name);
+    if (owned) {
+      _upgradeWeapon(weapon);
+    } else {
+      _buyWeapon(weapon);
+    }
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+
+    if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.keyW) {
+      _moveWeapon(-1);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowDown || key == LogicalKeyboardKey.keyS) {
+      _moveWeapon(1);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.keyA) {
+      _switchCategory(-1);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowRight || key == LogicalKeyboardKey.keyD) {
+      _switchCategory(1);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.space) {
+      _confirmAction();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.escape) {
+      widget.onStart();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -52,6 +165,7 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
       child: SafeArea(
         child: platform.isLandscape ? _buildLandscape() : _buildPortrait(),
       ),
+    ),
     );
   }
 

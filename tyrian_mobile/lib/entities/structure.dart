@@ -142,9 +142,6 @@ class Structure extends PositionComponent
   void render(Canvas canvas) {
     if (isDead) return;
 
-    canvas.save();
-    platform.landscapeRotate(canvas, size);
-
     final bounds = Rect.fromLTWH(0, 0, size.x, size.y);
 
     if (hit > 0) {
@@ -167,7 +164,5 @@ class Structure extends PositionComponent
       );
       canvas.restore();
     }
-
-    canvas.restore();
   }
 }

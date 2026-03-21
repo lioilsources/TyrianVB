@@ -479,9 +479,6 @@ class Vessel extends PositionComponent
   void render(Canvas canvas) {
     if (!visible) return;
 
-    canvas.save();
-    platform.landscapeRotate(canvas, size);
-
     final paint = playerIndex == 1 ? _p2Paint : null;
 
     if (_sprite != null) {
@@ -496,8 +493,6 @@ class Vessel extends PositionComponent
         ..close();
       canvas.drawPath(path, p);
     }
-
-    canvas.restore();
   }
 
   @override

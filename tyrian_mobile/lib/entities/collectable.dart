@@ -121,9 +121,6 @@ class Collectable extends PositionComponent
 
   @override
   void render(Canvas canvas) {
-    canvas.save();
-    platform.landscapeRotate(canvas, size);
-
     // Colored icon based on type
     final color = _colorForType();
     final paint = Paint()..color = color;
@@ -155,8 +152,6 @@ class Collectable extends PositionComponent
         (size.y - textPainter.height) / 2,
       ),
     );
-
-    canvas.restore();
   }
 
   Color _colorForType() {
