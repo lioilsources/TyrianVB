@@ -307,15 +307,14 @@ class TyrianGame extends FlameGame
     _updateEnemyProjectiles();
 
     // Feed damage flash into shader pipeline (after projectile collision)
-    // TODO: disabled — causes perf issues
-    // double maxFlash = 0;
-    // for (final v in allVessels) {
-    //   if (v.dmgTaken > 0) {
-    //     final flash = v.dmgTaken / 4.0; // 4 = max dmgTaken frames
-    //     if (flash > maxFlash) maxFlash = flash;
-    //   }
-    // }
-    // shaderPipeline.setDamageFlash(maxFlash);
+    double maxFlash = 0;
+    for (final v in allVessels) {
+      if (v.dmgTaken > 0) {
+        final flash = v.dmgTaken / 4.0; // 4 = max dmgTaken frames
+        if (flash > maxFlash) maxFlash = flash;
+      }
+    }
+    shaderPipeline.setDamageFlash(maxFlash);
 
     // Check sector completion
     if (currentSector != null && currentSector!.isComplete) {
