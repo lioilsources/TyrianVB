@@ -4,7 +4,9 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
 
+import 'game/platform_config.dart';
 import 'game/tyrian_game.dart';
 import 'ui/com_center.dart';
 import 'ui/osd_panel.dart';
@@ -17,12 +19,19 @@ import 'net/coop_client.dart';
 import 'net/discovery.dart';
 import 'net/protocol.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+
+  if (isDesktop) {
+    await windowManager.ensureInitialized();
+    await windowManager.setTitle('Tyrian');
+    await windowManager.setFullScreen(true);
+  } else {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   runApp(const TyrianApp());
@@ -96,6 +105,12 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       } else if (Platform.isAndroid) {
         final android = await info.androidInfo;
         name = android.model;
+      } else if (Platform.isMacOS) {
+        final mac = await info.macOsInfo;
+        name = mac.computerName;
+      } else if (Platform.isWindows) {
+        final win = await info.windowsInfo;
+        name = win.computerName;
       } else {
         return;
       }

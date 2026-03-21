@@ -5,6 +5,7 @@ import '../game/game_config.dart' as config;
 import '../game/tyrian_game.dart';
 import '../systems/path_system.dart';
 import '../services/asset_library.dart';
+import '../game/platform_config.dart' as platform;
 
 /// Structure behavior types from VBA
 enum StructBehavior { fall, follow, fallAndFollow, byPath }
@@ -141,6 +142,9 @@ class Structure extends PositionComponent
   void render(Canvas canvas) {
     if (isDead) return;
 
+    canvas.save();
+    platform.landscapeRotate(canvas, size);
+
     final bounds = Rect.fromLTWH(0, 0, size.x, size.y);
 
     if (hit > 0) {
@@ -163,5 +167,7 @@ class Structure extends PositionComponent
       );
       canvas.restore();
     }
+
+    canvas.restore();
   }
 }

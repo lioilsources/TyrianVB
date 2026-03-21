@@ -6,6 +6,7 @@ import '../game/tyrian_game.dart';
 import '../services/sound_service.dart';
 import '../systems/path_system.dart';
 import '../systems/dev_type.dart';
+import '../game/platform_config.dart' as platform;
 import 'vessel.dart';
 
 /// Collectable types from VBA CollType enum
@@ -120,6 +121,9 @@ class Collectable extends PositionComponent
 
   @override
   void render(Canvas canvas) {
+    canvas.save();
+    platform.landscapeRotate(canvas, size);
+
     // Colored icon based on type
     final color = _colorForType();
     final paint = Paint()..color = color;
@@ -151,6 +155,8 @@ class Collectable extends PositionComponent
         (size.y - textPainter.height) / 2,
       ),
     );
+
+    canvas.restore();
   }
 
   Color _colorForType() {

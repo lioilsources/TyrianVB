@@ -1,11 +1,16 @@
+import 'dart:math' show pi;
 import 'dart:typed_data';
 import 'package:flame/camera.dart';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'game_config.dart' as config;
+import 'platform_config.dart' as platform;
+import '../input/keyboard_input.dart';
+import '../input/gamepad_input.dart';
 import '../rendering/starfield.dart';
 import '../rendering/parallax_bg.dart';
 import '../entities/vessel.dart';
@@ -31,8 +36,12 @@ enum GameState { comCenter, playing, paused, gameOver }
 enum CoopRole { none, host, client }
 
 class TyrianGame extends FlameGame
-    with DragCallbacks, TapCallbacks, HasCollisionDetection {
+    with DragCallbacks, TapCallbacks, HasCollisionDetection, KeyboardEvents {
   TyrianGame();
+
+  final KeyboardInput keyboardInput = KeyboardInput();
+  final GamepadInput gamepadInput = GamepadInput();
+  double _gamepadPollTimer = 0;
 
   late Starfield starfield;
   late ParallaxBackground parallaxBg;
@@ -89,18 +98,30 @@ class TyrianGame extends FlameGame
 
   @override
   Future<void> onLoad() async {
-    // Fill screen: keep width=600, adjust height for device aspect ratio
-    config.gameHeight = config.gameWidth * (size.y / size.x);
-    // Safety: ensure game area is always portrait (height >= width)
-    if (config.gameHeight < config.gameWidth) {
-      config.gameHeight = config.gameWidth;
-    }
+    if (platform.isLandscape) {
+      // Desktop landscape: game height scales with screen WIDTH (fills after -90° rotation)
+      config.gameHeight = config.gameWidth * (size.x / size.y);
 
-    camera.viewport = FixedResolutionViewport(
-      resolution: Vector2(config.gameWidth, config.gameHeight),
-    );
-    camera.viewfinder.anchor = Anchor.topLeft;
-    camera.viewfinder.position = Vector2.zero();
+      camera.viewport = FixedResolutionViewport(
+        resolution: Vector2(config.gameHeight, config.gameWidth), // landscape dims
+      );
+      camera.viewfinder.anchor = Anchor.center;
+      camera.viewfinder.position =
+          Vector2(config.gameWidth / 2, config.gameHeight / 2);
+      camera.viewfinder.angle = -pi / 2; // CCW: game UP → screen RIGHT
+    } else {
+      // Mobile portrait: width=600, height scaled to device aspect ratio
+      config.gameHeight = config.gameWidth * (size.y / size.x);
+      if (config.gameHeight < config.gameWidth) {
+        config.gameHeight = config.gameWidth;
+      }
+
+      camera.viewport = FixedResolutionViewport(
+        resolution: Vector2(config.gameWidth, config.gameHeight),
+      );
+      camera.viewfinder.anchor = Anchor.topLeft;
+      camera.viewfinder.position = Vector2.zero();
+    }
 
     await AssetLibrary.instance.loadAll();
 
@@ -121,7 +142,7 @@ class TyrianGame extends FlameGame
     // Debug: screen/viewport info
     print('[LAYOUT] FlameGame.size: ${size.x} x ${size.y}');
     print('[LAYOUT] gameWidth: ${config.gameWidth}, gameHeight: ${config.gameHeight}');
-    print('[LAYOUT] viewport resolution: ${config.gameWidth} x ${config.gameHeight}');
+    print('[LAYOUT] landscape: ${platform.isLandscape}');
 
     // Shader pipeline
     shaderPipeline = ShaderPipeline();
@@ -236,6 +257,9 @@ class TyrianGame extends FlameGame
       super.update(dt);
       return;
     }
+
+    // Desktop keyboard + gamepad input (handles pause toggle even when paused)
+    _processDesktopInput(dt);
 
     if (state == GameState.paused || state == GameState.comCenter) {
       starfield.update(dt);
@@ -446,6 +470,93 @@ class TyrianGame extends FlameGame
       coopClient?.sendInput(_clientTargetX, _clientTargetY, _clientFire);
     } else {
       vessel.fire = !vessel.fire;
+    }
+  }
+
+  // ── Keyboard input (desktop) ──────────────────────────────
+
+  @override
+  KeyEventResult onKeyEvent(
+    KeyEvent event,
+    Set<LogicalKeyboardKey> keysPressed,
+  ) {
+    keyboardInput.handleKeyEvent(event);
+    return KeyEventResult.handled;
+  }
+
+  /// Desktop movement speed (game units per second).
+  static const double _kbSpeed = 300.0;
+
+  bool _prevPauseKey = false;
+  bool _prevGamepadPause = false;
+
+  /// Apply screen-space input to vessel (handles landscape inverse rotation).
+  void _applyMovement(Vessel v, double screenDx, double screenDy, double speed, double dt) {
+    if (platform.isLandscape) {
+      // Inverse rotation: screen → game space
+      // Screen RIGHT = game UP (−Y), Screen DOWN = game RIGHT (+X)
+      v.adjustPosition(
+        v.position.x + screenDy * speed * dt,
+        v.position.y - screenDx * speed * dt,
+      );
+    } else {
+      v.adjustPosition(
+        v.position.x + screenDx * speed * dt,
+        v.position.y + screenDy * speed * dt,
+      );
+    }
+  }
+
+  /// Process keyboard + gamepad input — called at the start of update().
+  void _processDesktopInput(double dt) {
+    if (!platform.isDesktop) return;
+
+    // Poll gamepad (~60Hz to avoid MethodChannel overhead)
+    _gamepadPollTimer += dt;
+    if (_gamepadPollTimer >= 1 / 60) {
+      _gamepadPollTimer = 0;
+      gamepadInput.poll(); // fire-and-forget async
+    }
+
+    // ── Pause toggle (edge-triggered, keyboard + gamepad) ──
+    final pauseKb = keyboardInput.pause;
+    final pauseGp = gamepadInput.primary.pause;
+    if ((pauseKb && !_prevPauseKey) || (pauseGp && !_prevGamepadPause)) {
+      if (state == GameState.playing || state == GameState.paused) {
+        togglePause();
+      }
+    }
+    _prevPauseKey = pauseKb;
+    _prevGamepadPause = pauseGp;
+
+    if (state != GameState.playing) return;
+
+    // ── Gamepad P1 (takes priority over keyboard) ──
+    final gp = gamepadInput.primary;
+    final gpDx = GamepadInput.deadzone(gp.leftStickX);
+    final gpDy = GamepadInput.deadzone(gp.leftStickY);
+    final gpActive = gpDx != 0 || gpDy != 0 || gp.fire;
+
+    if (gpActive) {
+      _applyMovement(vessel, gpDx, gpDy, _kbSpeed, dt);
+      vessel.fire = gp.fire;
+    } else {
+      // ── Keyboard fallback ──
+      final kbDx = keyboardInput.dx;
+      final kbDy = keyboardInput.dy;
+      if (kbDx != 0 || kbDy != 0) {
+        _applyMovement(vessel, kbDx, kbDy, _kbSpeed, dt);
+      }
+      vessel.fire = keyboardInput.fire;
+    }
+
+    // ── Gamepad P2 (local co-op) ──
+    if (vessel2 != null && vessel2!.visible && gamepadInput.controllers.length > 1) {
+      final gp2 = gamepadInput.secondary;
+      final gp2Dx = GamepadInput.deadzone(gp2.leftStickX);
+      final gp2Dy = GamepadInput.deadzone(gp2.leftStickY);
+      _applyMovement(vessel2!, gp2Dx, gp2Dy, _kbSpeed, dt);
+      vessel2!.fire = gp2.fire;
     }
   }
 

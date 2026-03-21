@@ -7,6 +7,7 @@ import '../systems/path_system.dart';
 import '../systems/fleet.dart';
 import '../systems/device.dart';
 import '../services/asset_library.dart';
+import '../game/platform_config.dart' as platform;
 import 'vessel.dart';
 
 /// Host types from VBA Objects.cls HostType enum
@@ -240,6 +241,9 @@ class Hostile extends PositionComponent with HasGameReference<TyrianGame> {
   void render(Canvas canvas) {
     if (isDead) return;
 
+    canvas.save();
+    platform.landscapeRotate(canvas, size);
+
     final bounds = Rect.fromLTWH(0, 0, size.x, size.y);
 
     if (hit > 0) {
@@ -268,6 +272,8 @@ class Hostile extends PositionComponent with HasGameReference<TyrianGame> {
     if (hp < hpMax) {
       _drawHpBar(canvas);
     }
+
+    canvas.restore();
   }
 
   void _drawHpBar(Canvas canvas) {

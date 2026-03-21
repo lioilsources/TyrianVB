@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/asset_library.dart';
 import '../services/sound_service.dart';
 import '../services/skin_registry.dart';
+import '../game/platform_config.dart' as platform;
 
 /// Full-screen skin selection overlay (dark gradient, cyan accents).
 class SkinSelector extends StatefulWidget {
@@ -84,10 +85,10 @@ class _SkinSelectorState extends State<SkinSelector> {
                   : Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: GridView.count(
-                        crossAxisCount: 2,
+                        crossAxisCount: platform.isLandscape ? 4 : 2,
                         mainAxisSpacing: 12,
                         crossAxisSpacing: 12,
-                        childAspectRatio: 0.85,
+                        childAspectRatio: platform.isLandscape ? 1.0 : 0.85,
                         children: kSkins.map(_buildSkinCard).toList(),
                       ),
                     ),

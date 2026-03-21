@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../game/tyrian_game.dart';
+import '../game/platform_config.dart' as platform;
 import '../systems/dev_type.dart';
 import '../systems/device.dart';
 import '../entities/vessel.dart';
@@ -49,24 +50,52 @@ class _ComCenterScreenState extends State<ComCenterScreen> {
         ),
       ),
       child: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: Column(
-                children: [
-                  // Top: Ship stats (compact)
-                  _buildShipStats(),
-                  const Divider(color: Colors.white24, height: 1),
-                  // Bottom: Weapon shop
-                  Expanded(child: _buildWeaponShop()),
-                ],
-              ),
-            ),
-            _buildBottomBar(),
-          ],
-        ),
+        child: platform.isLandscape ? _buildLandscape() : _buildPortrait(),
       ),
+    );
+  }
+
+  Widget _buildPortrait() {
+    return Column(
+      children: [
+        _buildHeader(),
+        Expanded(
+          child: Column(
+            children: [
+              _buildShipStats(),
+              const Divider(color: Colors.white24, height: 1),
+              Expanded(child: _buildWeaponShop()),
+            ],
+          ),
+        ),
+        _buildBottomBar(),
+      ],
+    );
+  }
+
+  Widget _buildLandscape() {
+    return Column(
+      children: [
+        _buildHeader(),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left: Ship stats
+              SizedBox(
+                width: 320,
+                child: SingleChildScrollView(
+                  child: _buildShipStats(),
+                ),
+              ),
+              const VerticalDivider(color: Colors.white24, width: 1),
+              // Right: Weapon shop
+              Expanded(child: _buildWeaponShop()),
+            ],
+          ),
+        ),
+        _buildBottomBar(),
+      ],
     );
   }
 
