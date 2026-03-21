@@ -233,6 +233,7 @@ class Hostile extends PositionComponent with HasGameReference<TyrianGame> {
       final vhy = vessel.size.y / 2 * cf;
 
       // AABB collision with player (shrunk hitboxes)
+      if (vessel.dmgTaken > 0) continue; // invulnerability frames
       if (position.x + hmx < vessel.position.x + vhx &&
           x2 - hmx > vessel.position.x - vhx &&
           position.y + hmy < vessel.position.y + vhy &&

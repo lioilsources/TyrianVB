@@ -127,7 +127,7 @@ class Structure extends PositionComponent
     final smx = size.x * (1 - cf) / 2;
     final smy = size.y * (1 - cf) / 2;
     for (final vessel in game.allVessels) {
-      if (!vessel.visible) continue;
+      if (!vessel.visible || vessel.dmgTaken > 0) continue; // invulnerability frames
       final vhx = vessel.size.x / 2 * cf;
       final vhy = vessel.size.y / 2 * cf;
 
