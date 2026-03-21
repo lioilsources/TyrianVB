@@ -593,11 +593,14 @@ class TyrianGame extends FlameGame
   }
 
   bool _projectileHitsVessel(Projectile p, Vessel v) {
+    const cf = 0.7; // collision fraction — shrink vessel hitbox for fairness
+    final vhx = v.size.x / 2 * cf;
+    final vhy = v.size.y / 2 * cf;
     return v.visible &&
-        p.position.x < v.position.x + v.size.x / 2 &&
-        p.position.x + p.size.x > v.position.x - v.size.x / 2 &&
-        p.position.y < v.position.y + v.size.y / 2 &&
-        p.position.y + p.size.y > v.position.y - v.size.y / 2;
+        p.position.x < v.position.x + vhx &&
+        p.position.x + p.size.x > v.position.x - vhx &&
+        p.position.y < v.position.y + vhy &&
+        p.position.y + p.size.y > v.position.y - vhy;
   }
 
   void _updateEnemyProjectiles() {

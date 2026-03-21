@@ -34,20 +34,25 @@ class Projectile extends PositionComponent with HasGameReference {
 
   @override
   Future<void> onLoad() async {
-    refreshSprite();
+    _loadSprite();
+    // Center horizontally on spawn position (once)
+    position.x -= size.x / 2;
+    add(RectangleHitbox());
   }
 
-  void refreshSprite() {
+  /// Load sprite and update size — no side effects on position or hitbox.
+  void _loadSprite() {
     _sprite = AssetLibrary.instance.getSprite(imgName);
     if (_sprite != null) {
       size = _sprite!.srcSize * projScale;
     } else {
       size = Vector2(6, 12) * projScale;
     }
-    // Center horizontally on spawn position
-    position.x -= size.x / 2;
+  }
 
-    add(RectangleHitbox());
+  /// Public API for skin changes — reloads sprite/size only.
+  void refreshSprite() {
+    _loadSprite();
   }
 
   @override
@@ -79,12 +84,12 @@ class Projectile extends PositionComponent with HasGameReference {
   }
 
   void activate(double x, double y, double spd, double dmg, double scale) {
-    position.setValues(x - size.x / 2, y);
     speed = spd;
     damage = dmg;
     projScale = scale;
     active = true;
-    refreshSprite();
+    _loadSprite();
+    position.setValues(x - size.x / 2, y);
   }
 
   void deactivate() {

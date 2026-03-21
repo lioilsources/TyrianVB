@@ -224,14 +224,19 @@ class Hostile extends PositionComponent with HasGameReference<TyrianGame> {
   }
 
   void _checkPlayerCollision() {
+    const cf = 0.7; // collision fraction — use 70% of sprite for body hits
+    final hmx = size.x * (1 - cf) / 2;
+    final hmy = size.y * (1 - cf) / 2;
     for (final vessel in game.allVessels) {
       if (!vessel.visible) continue;
+      final vhx = vessel.size.x / 2 * cf;
+      final vhy = vessel.size.y / 2 * cf;
 
-      // AABB collision with player
-      if (position.x < vessel.position.x + vessel.size.x / 2 &&
-          x2 > vessel.position.x - vessel.size.x / 2 &&
-          position.y < vessel.position.y + vessel.size.y / 2 &&
-          y2 > vessel.position.y - vessel.size.y / 2) {
+      // AABB collision with player (shrunk hitboxes)
+      if (position.x + hmx < vessel.position.x + vhx &&
+          x2 - hmx > vessel.position.x - vhx &&
+          position.y + hmy < vessel.position.y + vhy &&
+          y2 - hmy > vessel.position.y - vhy) {
         vessel.takeDamage(collisionDmg);
       }
     }
