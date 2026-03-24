@@ -9,8 +9,9 @@ import '../services/sound_service.dart';
 class OsdPanel extends StatelessWidget {
   final TyrianGame game;
   final VoidCallback? onMuteToggle;
+  final VoidCallback? onSkinSelect;
 
-  const OsdPanel({super.key, required this.game, this.onMuteToggle});
+  const OsdPanel({super.key, required this.game, this.onMuteToggle, this.onSkinSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -60,23 +61,55 @@ class OsdPanel extends StatelessWidget {
 
               const SizedBox(height: 4),
 
-              // Bottom row: Credits + Mute + Pause
+              // Bottom row: Credits/PAUSED + Mute + [Skin] + Pause
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    game.isCoop
-                        ? 'P1: ${game.vessel.credit}cr  P2: ${game.vessel2!.credit}cr'
-                        : 'Credits: ${game.vessel.credit}',
-                    style: const TextStyle(
-                      color: Colors.greenAccent,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                  if (game.state == GameState.paused)
+                    const Text(
+                      'PAUSED',
+                      style: TextStyle(
+                        color: Colors.cyanAccent,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                      ),
+                    )
+                  else
+                    Text(
+                      game.isCoop
+                          ? 'P1: ${game.vessel.credit}cr  P2: ${game.vessel2!.credit}cr'
+                          : 'Credits: ${game.vessel.credit}',
+                      style: const TextStyle(
+                        color: Colors.greenAccent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (game.state == GameState.paused && onSkinSelect != null)
+                        GestureDetector(
+                          onTap: onSkinSelect,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.orangeAccent.withAlpha(40),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.orangeAccent.withAlpha(100)),
+                            ),
+                            child: const Text(
+                              'SKIN',
+                              style: TextStyle(
+                                color: Colors.orangeAccent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
                       GestureDetector(
                         onTap: () {
                           SoundService.instance.toggleMute();

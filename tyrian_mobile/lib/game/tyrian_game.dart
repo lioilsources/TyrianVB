@@ -93,6 +93,7 @@ class TyrianGame extends FlameGame
   VoidCallback? onSectorComplete;
   VoidCallback? onLoaded;
   VoidCallback? onPauseToggle;
+  VoidCallback? onSkinRequested;
 
   @override
   Color backgroundColor() => const Color(0xFF000000);
@@ -391,8 +392,14 @@ class TyrianGame extends FlameGame
   void togglePause() {
     if (state == GameState.playing) {
       state = GameState.paused;
+      if (coopRole == CoopRole.host && coopHost != null) {
+        coopHost!.sendEvent(EventType.paused);
+      }
     } else if (state == GameState.paused) {
       state = GameState.playing;
+      if (coopRole == CoopRole.host && coopHost != null) {
+        coopHost!.sendEvent(EventType.resumed);
+      }
     }
     onPauseToggle?.call();
   }
@@ -511,6 +518,7 @@ class TyrianGame extends FlameGame
 
   bool _prevPauseKey = false;
   bool _prevGamepadPause = false;
+  bool _prevSkinGp = false;
 
   /// Apply screen-space input to vessel (handles landscape inverse rotation).
   void _applyMovement(Vessel v, double screenDx, double screenDy, double speed, double dt) {
@@ -550,6 +558,16 @@ class TyrianGame extends FlameGame
     }
     _prevPauseKey = pauseKb;
     _prevGamepadPause = pauseGp;
+
+    // ── Skin shortcut during pause (gamepad Y) ──
+    if (state == GameState.paused) {
+      final skinGp = gamepadInput.primary.buttonY;
+      if (skinGp && !_prevSkinGp) {
+        onSkinRequested?.call();
+      }
+      _prevSkinGp = skinGp;
+      return;
+    }
 
     if (state != GameState.playing) return;
 
