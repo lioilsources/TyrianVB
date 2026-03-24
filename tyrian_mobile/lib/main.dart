@@ -74,10 +74,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   // Pause skin selector
   bool _showPauseSkinSelector = false;
 
-  // Scanning state
-  bool _scanning = false;
-  String _scanStatus = 'Looking for games...';
-
   // Auto-host state (active from ComCenter through gameplay)
   CoopHost? _autoHost;
   CoopDiscovery? _autoDiscovery;
@@ -140,6 +136,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
     _game.onPauseToggle = () {
       if (mounted) setState(() {});
+    };
+
+    _game.onSkinRequested = () {
+      if (mounted) setState(() => _showPauseSkinSelector = true);
     };
 
     _game.onGameOver = () async {
@@ -210,10 +210,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       if (_game.state == GameState.playing) {
-        _game.togglePause();
-        if (_game.coopRole == CoopRole.host && _game.coopHost != null) {
-          _game.coopHost!.sendEvent(EventType.paused);
-        }
+        _game.togglePause(); // co-op events handled inside togglePause()
         if (mounted) setState(() {});
       }
     }
@@ -225,46 +222,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     _disposeAutoHost();
     _game.disposeCoop();
     super.dispose();
-  }
-
-  // ==== PLAY button: scan then auto-host or join ====
-
-  Future<void> _startPlayWithScan() async {
-    if (_scanning) return;
-    setState(() {
-      _scanning = true;
-      _scanStatus = 'Looking for games...';
-    });
-
-    final discovery = CoopDiscovery();
-    await discovery.startListening();
-
-    // Poll every 200ms for up to 3s
-    for (int i = 0; i < 15; i++) {
-      await Future.delayed(const Duration(milliseconds: 200));
-      if (!mounted) { discovery.dispose(); return; }
-
-      if (discovery.hosts.isNotEmpty) {
-        final entry = discovery.hosts.entries.first;
-        final ip = entry.key;
-        final hostInfo = entry.value;
-        discovery.dispose();
-
-        setState(() => _scanStatus = 'Found ${hostInfo.pilotName}! Connecting...');
-        await Future.delayed(const Duration(milliseconds: 400));
-        if (!mounted) return;
-
-        setState(() => _scanning = false);
-        await _joinAsClient(ip, hostInfo.port);
-        return;
-      }
-    }
-
-    // No host found → show choice: solo or manual IP
-    discovery.dispose();
-    if (!mounted) return;
-    setState(() => _scanning = false);
-    _showNoHostDialog();
   }
 
   /// Get the device's WiFi IP for display
@@ -290,17 +247,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       }
     } catch (_) {}
     return '?';
-  }
-
-  void _showNoHostDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => _NoHostDialog(
-        onSolo: () { Navigator.pop(ctx); _startAsAutoHost(); },
-        onManualIp: () { Navigator.pop(ctx); _showManualIpDialog(); },
-      ),
-    );
   }
 
   void _showManualIpDialog() {
@@ -375,14 +321,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     final client = CoopClient();
     final ok = await client.connect(ip, port, _game.vessel.pilotName);
     if (!ok) {
-      // Connection failed → show feedback, then fall back to auto-host
-      setState(() => _scanStatus = 'Connection failed, starting solo...');
-      _scanning = true;
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (mounted) {
-        setState(() => _scanning = false);
-        await _startAsAutoHost();
-      }
+      // Connection failed → fall back to auto-host
+      if (mounted) await _startAsAutoHost();
       return;
     }
 
@@ -455,34 +395,25 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           GameWidget(game: _game),
 
           // Main menu with skin selector
-          if (_game.isLoaded && _screen == _ScreenState.mainMenu && !_scanning)
+          if (_game.isLoaded && _screen == _ScreenState.mainMenu)
             SkinSelector(onPlay: () {
               _game.refreshSprites();
-              _startPlayWithScan();
+              _startAsAutoHost();
             }),
-
-          // Scanning spinner overlay
-          if (_scanning)
-            _buildScanningOverlay(),
 
           // Game screen overlays
           if (_game.isLoaded && _screen == _ScreenState.game) ...[
+            // Dimming overlay when paused
+            if (_game.state == GameState.paused && !_showPauseSkinSelector)
+              Container(color: Colors.black26),
+
             // OSD HUD
             if (!_showComCenter && !_showHighScores && !_clientWaiting &&
                 _game.state != GameState.gameOver)
-              OsdPanel(game: _game, onMuteToggle: () => setState(() {})),
-
-            // Pause overlay
-            if (_game.state == GameState.paused && !_showPauseSkinSelector)
-              _PauseOverlay(
-                onResume: () {
-                  _game.togglePause();
-                  if (_game.coopRole == CoopRole.host && _game.coopHost != null) {
-                    _game.coopHost!.sendEvent(EventType.resumed);
-                  }
-                  setState(() {});
-                },
-                onSkin: () => setState(() => _showPauseSkinSelector = true),
+              OsdPanel(
+                game: _game,
+                onMuteToggle: () => setState(() {}),
+                onSkinSelect: () => setState(() => _showPauseSkinSelector = true),
               ),
 
             // Skin selector during pause
@@ -497,6 +428,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
               ComCenterScreen(
                 game: _game,
                 onStart: _onComCenterStart,
+                onJoinIp: _showManualIpDialog,
               ),
 
             // Client waiting overlay (P2)
@@ -519,29 +451,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
               ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildScanningOverlay() {
-    return Container(
-      color: Colors.black54,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(color: Colors.cyanAccent),
-            const SizedBox(height: 16),
-            Text(
-              _scanStatus,
-              style: const TextStyle(
-                color: Colors.cyanAccent,
-                fontSize: 16,
-                letterSpacing: 2,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -571,287 +480,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Pause menu with keyboard/gamepad navigation.
-class _PauseOverlay extends StatefulWidget {
-  final VoidCallback onResume;
-  final VoidCallback onSkin;
-
-  const _PauseOverlay({required this.onResume, required this.onSkin});
-
-  @override
-  State<_PauseOverlay> createState() => _PauseOverlayState();
-}
-
-class _PauseOverlayState extends State<_PauseOverlay> {
-  int _focused = 0; // 0 = RESUME, 1 = SKIN
-  final _focusNode = FocusNode();
-
-  // Gamepad
-  final GamepadInput _gamepad = GamepadInput();
-  Timer? _pollTimer;
-  bool _prevUp = false, _prevDown = false, _prevConfirm = false;
-  bool _prevBack = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (platform.isDesktop) {
-      _pollTimer = Timer.periodic(
-        const Duration(milliseconds: 16),
-        (_) => _pollGamepad(),
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _pollTimer?.cancel();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  void _pollGamepad() async {
-    await _gamepad.poll();
-    if (!mounted) return;
-    final gp = _gamepad.primary;
-
-    final up = gp.dpadUp || GamepadInput.deadzone(gp.leftStickY) < -0.5;
-    final down = gp.dpadDown || GamepadInput.deadzone(gp.leftStickY) > 0.5;
-    final confirm = gp.buttonA || gp.buttonX;
-    final back = gp.buttonB;
-
-    if (up && !_prevUp) setState(() => _focused = 0);
-    if (down && !_prevDown) setState(() => _focused = 1);
-    if (confirm && !_prevConfirm) _activate();
-    if (back && !_prevBack) widget.onResume();
-
-    _prevUp = up;
-    _prevDown = down;
-    _prevConfirm = confirm;
-    _prevBack = back;
-  }
-
-  void _activate() {
-    if (_focused == 0) {
-      widget.onResume();
-    } else {
-      widget.onSkin();
-    }
-  }
-
-  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    final key = event.logicalKey;
-
-    if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.keyW) {
-      setState(() => _focused = 0);
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.arrowDown || key == LogicalKeyboardKey.keyS) {
-      setState(() => _focused = 1);
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.space) {
-      _activate();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.escape) {
-      widget.onResume();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Focus(
-      focusNode: _focusNode,
-      autofocus: true,
-      onKeyEvent: _handleKey,
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-          decoration: BoxDecoration(
-            color: Colors.black87,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.cyanAccent.withAlpha(100)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'PAUSED',
-                style: TextStyle(
-                  color: Colors.cyanAccent,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 4,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildButton('RESUME', 0, Colors.cyanAccent, Colors.black),
-              const SizedBox(height: 8),
-              _buildButton('SKIN', 1, Colors.white24, Colors.cyanAccent),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildButton(String label, int index, Color bg, Color fg) {
-    final isFocused = _focused == index;
-    return ElevatedButton(
-      onPressed: () {
-        setState(() => _focused = index);
-        _activate();
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: bg,
-        foregroundColor: fg,
-        side: isFocused ? const BorderSide(color: Colors.cyanAccent, width: 2) : null,
-      ),
-      child: Text(label),
-    );
-  }
-}
-
-/// "No host found" dialog with gamepad/keyboard navigation.
-class _NoHostDialog extends StatefulWidget {
-  final VoidCallback onSolo;
-  final VoidCallback onManualIp;
-
-  const _NoHostDialog({required this.onSolo, required this.onManualIp});
-
-  @override
-  State<_NoHostDialog> createState() => _NoHostDialogState();
-}
-
-class _NoHostDialogState extends State<_NoHostDialog> {
-  int _focused = 0; // 0 = SOLO, 1 = ENTER IP
-  final _focusNode = FocusNode();
-  final GamepadInput _gamepad = GamepadInput();
-  Timer? _pollTimer;
-  bool _prevUp = false, _prevDown = false, _prevConfirm = false;
-  bool _prevBack = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (platform.isDesktop) {
-      _pollTimer = Timer.periodic(
-        const Duration(milliseconds: 16),
-        (_) => _pollGamepad(),
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _pollTimer?.cancel();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  void _pollGamepad() async {
-    await _gamepad.poll();
-    if (!mounted) return;
-    final gp = _gamepad.primary;
-
-    final up = gp.dpadUp || GamepadInput.deadzone(gp.leftStickY) < -0.5;
-    final down = gp.dpadDown || GamepadInput.deadzone(gp.leftStickY) > 0.5;
-    final confirm = gp.buttonA || gp.buttonX;
-    final back = gp.buttonB;
-
-    if (up && !_prevUp) setState(() => _focused = 0);
-    if (down && !_prevDown) setState(() => _focused = 1);
-    if (confirm && !_prevConfirm) _activate();
-    if (back && !_prevBack) widget.onSolo();
-
-    _prevUp = up;
-    _prevDown = down;
-    _prevConfirm = confirm;
-    _prevBack = back;
-  }
-
-  void _activate() {
-    if (_focused == 0) {
-      widget.onSolo();
-    } else {
-      widget.onManualIp();
-    }
-  }
-
-  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    final key = event.logicalKey;
-
-    if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.keyW) {
-      setState(() => _focused = 0);
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.arrowDown || key == LogicalKeyboardKey.keyS) {
-      setState(() => _focused = 1);
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.space) {
-      _activate();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.escape) {
-      widget.onSolo();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Focus(
-      focusNode: _focusNode,
-      autofocus: true,
-      onKeyEvent: _handleKey,
-      child: AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text('No games found',
-            style: TextStyle(color: Colors.cyanAccent)),
-        content: const Text(
-          'Start a new game (others can join later)\nor enter the host\'s IP to connect.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() => _focused = 0);
-              widget.onSolo();
-            },
-            style: TextButton.styleFrom(
-              side: _focused == 0
-                  ? const BorderSide(color: Colors.cyanAccent, width: 2)
-                  : null,
-            ),
-            child: const Text('START SOLO',
-                style: TextStyle(color: Colors.cyanAccent)),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() => _focused = 1);
-              widget.onManualIp();
-            },
-            style: TextButton.styleFrom(
-              side: _focused == 1
-                  ? const BorderSide(color: Colors.orangeAccent, width: 2)
-                  : null,
-            ),
-            child: const Text('ENTER IP',
-                style: TextStyle(color: Colors.orangeAccent)),
-          ),
-        ],
       ),
     );
   }
