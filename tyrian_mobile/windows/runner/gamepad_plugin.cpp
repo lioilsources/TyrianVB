@@ -1,6 +1,7 @@
 #include "gamepad_plugin.h"
 
 #include <flutter/method_channel.h>
+#include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
 #include <windows.h>
 #include <Xinput.h>
@@ -8,7 +9,6 @@
 #pragma comment(lib, "xinput.lib")
 
 #include <memory>
-#include <vector>
 
 static void HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue>& method_call,
@@ -36,7 +36,7 @@ static void HandleMethodCall(
     };
 
     double lx = normalize(gp.sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
-    double ly = -normalize(gp.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE); // Invert Y
+    double ly = -normalize(gp.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
     double rx = normalize(gp.sThumbRX, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
     double ry = -normalize(gp.sThumbRY, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
     double lt = gp.bLeftTrigger / 255.0;
@@ -68,10 +68,16 @@ static void HandleMethodCall(
   result->Success(flutter::EncodableValue(controllers));
 }
 
-void GamepadPlugin::Register(flutter::PluginRegistrarWindows* registrar) {
-  auto channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-      registrar->messenger(), "com.tyrian/gamepad",
+// Prevent registrar & channel from being destroyed when the function returns.
+static flutter::PluginRegistrarWindows* g_registrar = nullptr;
+static std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> g_channel;
+
+void GamepadPluginRegisterWithRegistrar(
+    FlutterDesktopPluginRegistrarRef registrar_ref) {
+  g_registrar = new flutter::PluginRegistrarWindows(registrar_ref);
+  g_channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+      g_registrar->messenger(), "com.tyrian/gamepad",
       &flutter::StandardMethodCodec::GetInstance());
 
-  channel->SetMethodCallHandler(HandleMethodCall);
+  g_channel->SetMethodCallHandler(HandleMethodCall);
 }

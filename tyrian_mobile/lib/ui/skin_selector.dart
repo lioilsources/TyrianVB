@@ -119,6 +119,9 @@ class _SkinSelectorState extends State<SkinSelector> {
   void _pollGamepad() async {
     await _gamepad.poll();
     if (!mounted) return;
+    // Don't consume edges while loading — otherwise edge detection
+    // is "spent" before the UI is ready to act on it.
+    if (_loading) return;
     final gp = _gamepad.primary;
 
     // D-pad navigation (edge-triggered)

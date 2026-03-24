@@ -26,7 +26,7 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
-  GamepadPlugin::Register(
+  GamepadPluginRegisterWithRegistrar(
       flutter_controller_->engine()->GetRegistrarForPlugin("GamepadPlugin"));
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 

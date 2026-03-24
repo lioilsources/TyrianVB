@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/geeol/Code/TyrianMobile/TyrianVB/tyrian_mobile/macos -type f -name *.swift -o -name *.h -o -name *.m)",
+      "WebFetch(domain:pub.dev)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}

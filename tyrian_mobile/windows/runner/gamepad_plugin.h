@@ -1,14 +1,18 @@
 #ifndef RUNNER_GAMEPAD_PLUGIN_H_
 #define RUNNER_GAMEPAD_PLUGIN_H_
 
-#include <flutter/method_channel.h>
-#include <flutter/plugin_registrar_windows.h>
+#include <flutter_plugin_registrar.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /// Native Windows gamepad bridge using XInput.
-/// Supports Xbox controllers (wired/wireless) and PS4 via Steam/DS4Windows.
-class GamepadPlugin {
- public:
-  static void Register(flutter::PluginRegistrarWindows* registrar);
-};
+void GamepadPluginRegisterWithRegistrar(
+    FlutterDesktopPluginRegistrarRef registrar);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // RUNNER_GAMEPAD_PLUGIN_H_

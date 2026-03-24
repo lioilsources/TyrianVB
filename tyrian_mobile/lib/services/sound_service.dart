@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flame_audio/flame_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,11 +23,15 @@ class SoundService {
   String _skinId = 'default';
   bool _muted = false;
   bool _ready = false;
+  bool _disabled = false; // true after repeated native failures
 
   bool get muted => _muted;
 
   // Maps SfxEvent → asset path relative to assets/
   final Map<SfxEvent, String> _paths = {};
+  // Paths that have failed — never retry them
+  final Set<String> _failedPaths = {};
+  int _failCount = 0;
 
   static const _eventFileNames = {
     SfxEvent.fireBullet: 'fire_bullet',
@@ -53,6 +58,9 @@ class SoundService {
   Future<void> loadSkin(String skinId) async {
     _skinId = skinId;
     _paths.clear();
+    _failedPaths.clear();
+    _failCount = 0;
+    _disabled = false;
     _ready = false;
 
     for (final entry in _eventFileNames.entries) {
@@ -66,21 +74,39 @@ class SoundService {
 
   /// Play a sound effect (fire-and-forget).
   void play(SfxEvent event) {
-    if (_muted || !_ready) return;
+    if (_muted || !_ready || _disabled) return;
     final path = _paths[event];
-    if (path == null) return;
+    if (path == null || _failedPaths.contains(path)) return;
 
-    _playPath(path).then((_) {}, onError: (_) {
+    _playPath(path).then((_) {
+      _failCount = 0; // reset on success
+    }, onError: (_) {
+      _failedPaths.add(path);
+      _failCount++;
+      // After 5 consecutive failures, disable audio entirely
+      if (_failCount >= 5) {
+        _disabled = true;
+        print('SoundService: too many failures, audio disabled');
+      }
       // If skin-specific file missing, try default fallback
       if (_skinId != 'default') {
         final fallback = 'skins/default/sfx/${_eventFileNames[event]}.ogg';
-        _playPath(fallback).then((_) {}, onError: (_) {});
+        if (!_failedPaths.contains(fallback)) {
+          _playPath(fallback).then((_) {}, onError: (_) {
+            _failedPaths.add(fallback);
+          });
+        }
       }
     });
   }
 
   Future<void> _playPath(String path) async {
-    await FlameAudio.play(path, volume: 1.0);
+    try {
+      await FlameAudio.play(path, volume: 1.0);
+    } catch (e) {
+      // Rethrow as a Future error so onError handler sees it
+      return Future.error(e);
+    }
   }
 
   /// Toggle mute on/off and persist.
