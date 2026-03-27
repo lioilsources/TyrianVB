@@ -180,6 +180,8 @@ class DevType {
 
   // ---- Generator ----
 
+  static const List<DevType> generators = [generatorBasic];
+
   static const generatorBasic = DevType(
     name: 'Falcon Basic',
     imgName: 'generator',

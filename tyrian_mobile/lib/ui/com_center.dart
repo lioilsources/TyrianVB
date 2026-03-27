@@ -6,7 +6,6 @@ import '../game/platform_config.dart' as platform;
 import '../systems/dev_type.dart';
 import '../systems/device.dart';
 import '../entities/vessel.dart';
-import '../rendering/health_bar.dart';
 import '../input/gamepad_input.dart';
 import '../services/save_service.dart';
 import 'high_scores.dart';
@@ -36,7 +35,10 @@ class _ComCenterScreenState extends State<ComCenterScreen>
 
   // Weapon selection
   int _selectedWeaponIndex = 0;
-  bool _showingSide = false; // false = front, true = side section focused
+  int _sectionIndex = 0; // 0=front, 1=side, 2=gen
+
+  // Side slot target for buy (LB/RB gamepad or tap →L/→R)
+  WeaponSlot _targetSideSlot = WeaponSlot.leftGun;
 
   // High scores
   List<HighScoreEntry> _highScores = [];
@@ -52,7 +54,12 @@ class _ComCenterScreenState extends State<ComCenterScreen>
   bool _prevLeft = false, _prevRight = false;
   bool _prevConfirm = false, _prevStart = false, _prevBack = false;
   bool _prevSell = false;
+  bool _prevLb = false, _prevRb = false;
   final FocusNode _focusNode = FocusNode();
+
+  // ── Computed section state ──
+  bool get _showingSide => _sectionIndex == 1;
+  bool get _showingGen => _sectionIndex == 2;
 
   List<DevType> get _frontWeapons {
     final maxIdx = vessel.nextWeaponLevel.clamp(0, DevType.frontWeapons.length - 1);
@@ -64,7 +71,11 @@ class _ComCenterScreenState extends State<ComCenterScreen>
     return DevType.sideWeapons.sublist(0, maxIdx + 1);
   }
 
-  List<DevType> get _currentWeapons => _showingSide ? _sideWeapons : _frontWeapons;
+  List<DevType> get _currentWeapons {
+    if (_sectionIndex == 0) return _frontWeapons;
+    if (_sectionIndex == 1) return _sideWeapons;
+    return [DevType.generatorBasic];
+  }
 
   @override
   void initState() {
@@ -116,19 +127,25 @@ class _ComCenterScreenState extends State<ComCenterScreen>
     final start = gp.start;
     final back = gp.buttonB;
     final sell = gp.buttonY;
+    final lb = gp.leftShoulder;
+    final rb = gp.rightShoulder;
 
     if (up && !_prevUp) _moveWeapon(-1);
     if (down && !_prevDown) _moveWeapon(1);
-    if (left && !_prevLeft) _switchSection(false);
-    if (right && !_prevRight) _switchSection(true);
+    if (left && !_prevLeft) _switchSection((_sectionIndex - 1).clamp(0, 2));
+    if (right && !_prevRight) _switchSection((_sectionIndex + 1).clamp(0, 2));
     if (confirm && !_prevConfirm) _confirmAction();
     if (sell && !_prevSell) _sellAction();
     if ((start && !_prevStart) || (back && !_prevBack)) widget.onStart();
+    // LB/RB: choose which side slot to buy into
+    if (lb && !_prevLb && _showingSide) setState(() => _targetSideSlot = WeaponSlot.leftGun);
+    if (rb && !_prevRb && _showingSide) setState(() => _targetSideSlot = WeaponSlot.rightGun);
 
     _prevUp = up; _prevDown = down;
     _prevLeft = left; _prevRight = right;
     _prevConfirm = confirm; _prevStart = start;
     _prevBack = back; _prevSell = sell;
+    _prevLb = lb; _prevRb = rb;
   }
 
   void _moveWeapon(int delta) {
@@ -139,10 +156,10 @@ class _ComCenterScreenState extends State<ComCenterScreen>
     });
   }
 
-  void _switchSection(bool toSide) {
-    if (toSide != _showingSide) {
+  void _switchSection(int section) {
+    if (section != _sectionIndex) {
       setState(() {
-        _showingSide = toSide;
+        _sectionIndex = section;
         _selectedWeaponIndex = 0;
       });
     }
@@ -151,7 +168,8 @@ class _ComCenterScreenState extends State<ComCenterScreen>
   void _confirmAction() {
     if (_currentWeapons.isEmpty) return;
     final weapon = _currentWeapons[_selectedWeaponIndex];
-    final owned = vessel.devices.any((d) => d.name == weapon.name);
+    // Generator is always owned — only upgrade action makes sense
+    final owned = _showingGen || vessel.devices.any((d) => d.name == weapon.name);
     if (owned) {
       _upgradeWeapon(weapon);
     } else {
@@ -160,6 +178,7 @@ class _ComCenterScreenState extends State<ComCenterScreen>
   }
 
   void _sellAction() {
+    if (_showingGen) return; // generator cannot be sold
     if (_currentWeapons.isEmpty) return;
     final weapon = _currentWeapons[_selectedWeaponIndex];
     final owned = vessel.devices.any((d) => d.name == weapon.name);
@@ -179,11 +198,11 @@ class _ComCenterScreenState extends State<ComCenterScreen>
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.keyA) {
-      _switchSection(false);
+      _switchSection((_sectionIndex - 1).clamp(0, 2));
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.arrowRight || key == LogicalKeyboardKey.keyD) {
-      _switchSection(true);
+      _switchSection((_sectionIndex + 1).clamp(0, 2));
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.space) {
@@ -205,18 +224,18 @@ class _ComCenterScreenState extends State<ComCenterScreen>
 
   void _buyWeapon(DevType weapon) {
     if (vessel.credit < weapon.price) return;
-
-    WeaponSlot slot;
-    if (!_showingSide) {
-      slot = WeaponSlot.frontGun;
-    } else {
-      final hasLeft = vessel.devices.any((d) => d.slot == WeaponSlot.leftGun);
-      slot = hasLeft ? WeaponSlot.rightGun : WeaponSlot.leftGun;
-    }
-
+    final slot = _showingSide ? _targetSideSlot : WeaponSlot.frontGun;
     vessel.credit -= weapon.price;
     vessel.equipWeapon(weapon, slot);
     setState(() {});
+  }
+
+  /// Buy a side weapon directly into a specific slot (used by →L / →R tap buttons).
+  void _buyWeaponToSlot(DevType weapon, WeaponSlot slot) {
+    if (vessel.credit < weapon.price) return;
+    vessel.credit -= weapon.price;
+    vessel.equipWeapon(weapon, slot);
+    setState(() => _targetSideSlot = slot);
   }
 
   void _upgradeWeapon(DevType weapon) {
@@ -291,6 +310,8 @@ class _ComCenterScreenState extends State<ComCenterScreen>
                               _buildWeaponSection('FRONT WEAPONS', _frontWeapons, false),
                               const SizedBox(height: 16),
                               _buildWeaponSection('SIDE WEAPONS', _sideWeapons, true),
+                              const SizedBox(height: 16),
+                              _buildGeneratorSection(),
                             ],
                           ),
                         ),
@@ -603,7 +624,7 @@ class _ComCenterScreenState extends State<ComCenterScreen>
   // ── Weapon section (front or side) ──
 
   Widget _buildWeaponSection(String title, List<DevType> weapons, bool isSide) {
-    final isFocused = _showingSide == isSide;
+    final isFocused = _showingSide == isSide && !_showingGen;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -630,7 +651,7 @@ class _ComCenterScreenState extends State<ComCenterScreen>
   }
 
   Widget _buildWeaponCard(DevType weapon, int index, bool isSide) {
-    final isSelected = _showingSide == isSide && _selectedWeaponIndex == index;
+    final isSelected = _showingSide == isSide && !_showingGen && _selectedWeaponIndex == index;
     final owned = vessel.devices.any((d) => d.name == weapon.name);
     final canAfford = vessel.credit >= weapon.price;
     final device = owned
@@ -649,13 +670,13 @@ class _ComCenterScreenState extends State<ComCenterScreen>
     return GestureDetector(
       onTap: () {
         setState(() {
-          _showingSide = isSide;
+          _sectionIndex = isSide ? 1 : 0;
           _selectedWeaponIndex = index;
         });
       },
       onDoubleTap: () {
         setState(() {
-          _showingSide = isSide;
+          _sectionIndex = isSide ? 1 : 0;
           _selectedWeaponIndex = index;
         });
         _confirmAction();
@@ -719,14 +740,14 @@ class _ComCenterScreenState extends State<ComCenterScreen>
               ),
             const SizedBox(height: 4),
             // Action button
-            if (isSelected) _buildCardAction(weapon, owned, canAfford, device),
+            if (isSelected) _buildCardAction(weapon, owned, canAfford, device, isSide: isSide),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCardAction(DevType weapon, bool owned, bool canAfford, Device? device) {
+  Widget _buildCardAction(DevType weapon, bool owned, bool canAfford, Device? device, {bool isSide = false}) {
     if (owned) {
       final atMax = device!.level >= Device.maxLevel;
       return Row(
@@ -769,6 +790,15 @@ class _ComCenterScreenState extends State<ComCenterScreen>
           ),
         ],
       );
+    } else if (isSide) {
+      // Side weapons: show →L and →R slot buttons so player can choose target slot
+      return Row(
+        children: [
+          _buildSideSlotButton(weapon, WeaponSlot.leftGun, 'L', canAfford),
+          const SizedBox(width: 4),
+          _buildSideSlotButton(weapon, WeaponSlot.rightGun, 'R', canAfford),
+        ],
+      );
     } else {
       return GestureDetector(
         onTap: canAfford ? () => _buyWeapon(weapon) : null,
@@ -793,6 +823,157 @@ class _ComCenterScreenState extends State<ComCenterScreen>
     }
   }
 
+  /// →L / →R slot button for side weapon purchase.
+  Widget _buildSideSlotButton(DevType weapon, WeaponSlot slot, String label, bool canAfford) {
+    final isTarget = _targetSideSlot == slot;
+    return Expanded(
+      child: GestureDetector(
+        onTap: canAfford
+            ? () => _buyWeaponToSlot(weapon, slot)
+            : () => setState(() => _targetSideSlot = slot), // highlight even if can't afford
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          decoration: BoxDecoration(
+            color: canAfford
+                ? Colors.green.withAlpha(isTarget ? 80 : 40)
+                : Colors.white10,
+            border: isTarget
+                ? Border.all(color: Colors.greenAccent.withAlpha(180), width: 1)
+                : null,
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Text(
+            canAfford ? '→$label' : label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: canAfford ? Colors.greenAccent : Colors.white24,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Generator section ──
+
+  Widget _buildGeneratorSection() {
+    final isFocused = _showingGen;
+    final gen = DevType.generatorBasic;
+    final device = vessel.devices.cast<Device?>().firstWhere(
+      (d) => d?.slot == WeaponSlot.generator,
+      orElse: () => null,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'GENERATOR',
+          style: TextStyle(
+            color: isFocused ? Colors.cyanAccent : Colors.white38,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () => setState(() {
+            _sectionIndex = 2;
+            _selectedWeaponIndex = 0;
+          }),
+          onDoubleTap: () {
+            setState(() {
+              _sectionIndex = 2;
+              _selectedWeaponIndex = 0;
+            });
+            _confirmAction();
+          },
+          child: Container(
+            width: 140,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isFocused ? const Color(0xFF1a1a4e) : const Color(0xFF0a0a1e),
+              border: Border.all(
+                color: isFocused ? Colors.cyanAccent : Colors.greenAccent.withAlpha(120),
+                width: isFocused ? 2 : 1,
+              ),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  device != null
+                      ? '${gen.name} ${_romanLevel(device.level)}'
+                      : gen.name,
+                  style: const TextStyle(
+                    color: Colors.greenAccent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'PWR: +${gen.pwrGen.toStringAsFixed(2)}/fr',
+                  style: const TextStyle(color: Colors.white54, fontSize: 9),
+                ),
+                Text(
+                  'Cap: ${vessel.genMax.toInt()}',
+                  style: const TextStyle(color: Colors.white38, fontSize: 9),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Text('OWNED', style: TextStyle(color: Colors.greenAccent, fontSize: 9)),
+                    const Spacer(),
+                    if (device != null && device.level < Device.maxLevel)
+                      Text(
+                        '${device.price.toInt()}cr',
+                        style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 8),
+                      ),
+                  ],
+                ),
+                if (isFocused && device != null) ...[
+                  const SizedBox(height: 4),
+                  GestureDetector(
+                    onTap: device.level >= Device.maxLevel
+                        ? null
+                        : () => _upgradeWeapon(gen),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      decoration: BoxDecoration(
+                        color: device.level >= Device.maxLevel
+                            ? Colors.white10
+                            : Colors.blue.withAlpha(60),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        device.level >= Device.maxLevel ? 'MAX' : 'UPGRADE',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: device.level >= Device.maxLevel
+                              ? Colors.white24
+                              : Colors.lightBlueAccent,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   String _romanLevel(int level) {
     const numerals = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
       'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX',
@@ -811,47 +992,60 @@ class _ComCenterScreenState extends State<ComCenterScreen>
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: Colors.cyanAccent.withAlpha(60))),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (showJoin) ...[
-            GestureDetector(
-              onTap: widget.onJoinIp,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.orangeAccent.withAlpha(150)),
-                  borderRadius: BorderRadius.circular(6),
+          if (platform.isDesktop)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                '[OPTIONS / B]  Continue mission     [LB / RB]  Side slot L / R',
+                style: const TextStyle(color: Colors.white24, fontSize: 9),
+              ),
+            ),
+          Row(
+            children: [
+              if (showJoin) ...[
+                GestureDetector(
+                  onTap: widget.onJoinIp,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.orangeAccent.withAlpha(150)),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'JOIN',
+                      style: TextStyle(
+                        color: Colors.orangeAccent,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
                 ),
-                child: const Text(
-                  'JOIN',
-                  style: TextStyle(
-                    color: Colors.orangeAccent,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: widget.onStart,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.cyanAccent,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-          ],
-          Expanded(
-            child: ElevatedButton(
-              onPressed: widget.onStart,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.cyanAccent,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                ),
-              ),
-            ),
+            ],
           ),
         ],
       ),
