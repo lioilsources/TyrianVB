@@ -42,9 +42,9 @@ class Projectile extends PositionComponent with HasGameReference {
   void _loadSprite() {
     _sprite = AssetLibrary.instance.getSprite(imgName);
     if (_sprite != null) {
-      size = _sprite!.srcSize * projScale;
+      size = _sprite!.srcSize * projScale * config.spriteScale;
     } else {
-      size = Vector2(6, 12) * projScale;
+      size = Vector2(6, 12) * projScale * config.spriteScale;
     }
   }
 

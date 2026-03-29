@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import '../game/game_config.dart' as config;
 import '../game/tyrian_game.dart';
 import '../systems/path_system.dart';
 import '../systems/fleet.dart';
@@ -93,9 +94,9 @@ class Hostile extends PositionComponent with HasGameReference<TyrianGame> {
     final spriteName = _spriteNameForType(hostType);
     _sprite = AssetLibrary.instance.getSprite(spriteName);
     if (_sprite != null) {
-      size = _sprite!.srcSize;
+      size = _sprite!.srcSize * config.spriteScale;
     } else {
-      size = Vector2(40, 40); // Placeholder
+      size = Vector2(40, 40) * config.spriteScale; // Placeholder
     }
   }
 

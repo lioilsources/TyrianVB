@@ -76,9 +76,9 @@ class Vessel extends PositionComponent
       _sprite = AssetLibrary.instance.getSprite('vessel');
     }
     if (_sprite != null) {
-      size = _sprite!.srcSize;
+      size = _sprite!.srcSize * config.spriteScale;
     } else {
-      size = Vector2(50, 40);
+      size = Vector2(50, 40) * config.spriteScale;
     }
   }
 

@@ -64,9 +64,9 @@ class Structure extends PositionComponent
       _sprite = AssetLibrary.instance.getSprite(_imgName);
     }
     if (_sprite != null) {
-      size = _sprite!.srcSize;
+      size = _sprite!.srcSize * config.spriteScale;
     } else {
-      size = Vector2(50, 50);
+      size = Vector2(50, 50) * config.spriteScale;
     }
   }
 
