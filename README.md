@@ -48,3 +48,4 @@ flutter run -d macos
 
 - [CHANGELOG.md](CHANGELOG.md) — development history
 - [GALLERY.md](GALLERY.md) — screenshots and videos
+- [SKINS.md](SKINS.md) — visual themes reference
