@@ -57,6 +57,7 @@ class BloomPass extends PostProcess {
     });
     _blurShader.setImageSampler(0, thresholdImg);
     final hBlurImg = _renderShaderToImage(w, h, _blurShader);
+    thresholdImg.dispose();
 
     // 3. Vertical blur
     _blurShader.setFloatUniforms((s) {
@@ -66,6 +67,7 @@ class BloomPass extends PostProcess {
     });
     _blurShader.setImageSampler(0, hBlurImg);
     final vBlurImg = _renderShaderToImage(w, h, _blurShader);
+    hBlurImg.dispose();
 
     // 4. Composite — original scene + blurred bloom
     _compositeShader.setFloatUniforms((s) {
@@ -78,6 +80,7 @@ class BloomPass extends PostProcess {
       Rect.fromLTWH(0, 0, size.x, size.y),
       Paint()..shader = _compositeShader,
     );
+    vBlurImg.dispose();
   }
 
   /// Render a shader into an offscreen image at pixel dimensions [w] x [h].

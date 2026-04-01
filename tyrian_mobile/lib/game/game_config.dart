@@ -35,11 +35,11 @@ const int mbRight = 4;
 const String stateFileName = 'state.json';
 
 // Sprite scale factor to match original VBA proportions (VBA SIZE_UNIT ~0.0378)
-const double spriteScale = 0.37;
+const double spriteScale = 0.74;
 
 // Collectable icon size
-const double iconWidth = 35.0;
-const double iconHeight = 35.0;
+const double iconWidth = 70.0;
+const double iconHeight = 70.0;
 
 // Sector delay
 const double delayOnComplete = 2.0; // seconds

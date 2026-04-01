@@ -45,6 +45,7 @@ class PixelExplosionOverlay extends PositionComponent
   void update(double dt) {
     _time += dt;
     if (_time >= _duration) {
+      _snapshot.dispose();
       removeFromParent();
     }
   }

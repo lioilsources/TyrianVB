@@ -99,7 +99,7 @@ class Fleet extends Component with HasGameReference<TyrianGame> {
           final shooter = alive[Random().nextInt(alive.length)];
           final xm = shooter.position.x + shooter.size.x / 2;
           if (xm > 0 && xm < config.gameWidth) {
-            game.spawnEnemyProjectile(xm, shooter.y2 + 5, weapDamage, weapScale);
+            game.spawnEnemyProjectile(xm, shooter.y2 + 10, weapDamage, weapScale);
           }
         }
         weapCD = 0;

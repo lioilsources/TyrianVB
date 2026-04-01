@@ -265,58 +265,41 @@ class _ComCenterScreenState extends State<ComCenterScreen>
       onKeyEvent: _handleKeyEvent,
       child: Stack(
         children: [
-          // Animated gradient background
           _AnimatedBackground(phase: _bgPhase),
-          // Content
           SafeArea(
             child: Column(
               children: [
                 _buildHeader(),
-                Expanded(
-                  child: Row(
+                // Compact stats strip
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Left panel: ship stats + scores
-                      SizedBox(
-                        width: 300,
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildShipPreview(),
-                              const SizedBox(height: 10),
-                              _buildPilotName(),
-                              const SizedBox(height: 10),
-                              _buildStatValues(),
-                              const SizedBox(height: 10),
-                              _buildSlotList(),
-                              const SizedBox(height: 6),
-                              _buildGenInfo(),
-                              const SizedBox(height: 16),
-                              _buildScoreTable(),
-                            ],
-                          ),
-                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _buildPilotName()),
+                          const SizedBox(width: 12),
+                          _buildGenInfo(),
+                        ],
                       ),
-                      Container(width: 1, color: Colors.white12),
-                      // Right panel: weapon cards
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildWeaponSection('FRONT WEAPONS', _frontWeapons, false),
-                              const SizedBox(height: 16),
-                              _buildWeaponSection('SIDE WEAPONS', _sideWeapons, true),
-                              const SizedBox(height: 16),
-                              _buildGeneratorSection(),
-                            ],
-                          ),
-                        ),
-                      ),
+                      const SizedBox(height: 6),
+                      _buildStatValues(),
+                      const SizedBox(height: 6),
+                      _buildSlotList(),
                     ],
+                  ),
+                ),
+                Container(height: 1, color: Colors.white12),
+                // Section tabs
+                _buildSectionTabs(),
+                Container(height: 1, color: Colors.white12),
+                // Weapon cards — selected section only, full width
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(12),
+                    child: _buildActiveSection(),
                   ),
                 ),
                 _buildBottomBar(),
@@ -325,6 +308,70 @@ class _ComCenterScreenState extends State<ComCenterScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSectionTabs() {
+    return Row(
+      children: [
+        _buildTab('FRONT', 0),
+        Container(width: 1, color: Colors.white12),
+        _buildTab('SIDE', 1),
+        Container(width: 1, color: Colors.white12),
+        _buildTab('GENERATOR', 2),
+      ],
+    );
+  }
+
+  Widget _buildTab(String label, int index) {
+    final isActive = _sectionIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() {
+          _sectionIndex = index;
+          _selectedWeaponIndex = 0;
+        }),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          color: isActive ? const Color(0xFF1a1a4e) : Colors.transparent,
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isActive ? Colors.cyanAccent : Colors.white38,
+              fontSize: 11,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveSection() {
+    if (_sectionIndex == 2) return _buildGeneratorSection();
+    final isSide = _sectionIndex == 1;
+    final weapons = isSide ? _sideWeapons : _frontWeapons;
+    return _buildWeaponGrid(weapons, isSide);
+  }
+
+  Widget _buildWeaponGrid(List<DevType> weapons, bool isSide) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = (constraints.maxWidth - 8) / 2;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (int i = 0; i < weapons.length; i++)
+              SizedBox(
+                width: cardWidth,
+                child: _buildWeaponCard(weapons[i], i, isSide),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -682,7 +729,6 @@ class _ComCenterScreenState extends State<ComCenterScreen>
         _confirmAction();
       },
       child: Container(
-        width: 140,
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF1a1a4e) : const Color(0xFF0a0a1e),
@@ -892,7 +938,6 @@ class _ComCenterScreenState extends State<ComCenterScreen>
             _confirmAction();
           },
           child: Container(
-            width: 140,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: isFocused ? const Color(0xFF1a1a4e) : const Color(0xFF0a0a1e),

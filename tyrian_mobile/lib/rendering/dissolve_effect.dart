@@ -111,6 +111,7 @@ class DissolveEffect {
       Rect.fromLTWH(0, 0, width, height),
       Paint()..shader = _shader!,
     );
+    entityImage.dispose();
   }
 }
 
@@ -204,5 +205,6 @@ class PixelExplosionEffect {
       Rect.fromLTWH(0, 0, width, height),
       Paint()..shader = _shader!,
     );
+    entityImage.dispose();
   }
 }

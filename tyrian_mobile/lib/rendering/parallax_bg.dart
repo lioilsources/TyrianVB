@@ -22,6 +22,9 @@ class ParallaxBackground extends Component {
   @override
   void update(double dt) {
     if (_layers.isEmpty) return;
+    if (_offsets.length != _layers.length) {
+      _offsets = List.filled(_layers.length, 0.0);
+    }
     final scaledDt = dt * config.originalFps;
     for (int i = 0; i < _layers.length; i++) {
       _offsets[i] += _speeds[min(i, _speeds.length - 1)] * scaledDt;
@@ -32,6 +35,7 @@ class ParallaxBackground extends Component {
 
   @override
   void render(ui.Canvas canvas) {
+    if (_offsets.length != _layers.length) return;
     for (int i = 0; i < _layers.length; i++) {
       final img = _layers[i];
       final scale = config.gameWidth / img.width;

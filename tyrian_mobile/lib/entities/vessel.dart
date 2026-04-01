@@ -56,6 +56,10 @@ class Vessel extends PositionComponent
   static const _frameDuration = 0.12; // seconds per frame
   bool visible = true;
 
+  /// Y offset from position.y to front gun nozzle tip (negative = above center).
+  /// Computed from sprite alpha at load time to handle skins with transparent padding.
+  double _gunNozzleOffsetY = 0.0;
+
   Vessel({this.playerIndex = 0}) : super(anchor: Anchor.center);
 
   Future<void> init() async {
@@ -79,6 +83,33 @@ class Vessel extends PositionComponent
       size = _sprite!.srcSize * config.spriteScale;
     } else {
       size = Vector2(50, 40) * config.spriteScale;
+    }
+    _computeGunNozzleOffset();
+  }
+
+  /// Compute _gunNozzleOffsetY from sprite aspect ratio.
+  ///
+  /// Some skins (tyrian_dos, gradius_v, blazing_lazers) use a 32×128 canvas
+  /// where the visible ship occupies only the middle ~27% (y=47–81 out of 128).
+  /// Aspect ratio > 2:1 reliably identifies this format; for such sprites the
+  /// gun nozzle sits at ~36.7% from the sprite top (= 0.133 × height above center).
+  /// Normal sprites (aspect ratio ≤ 2:1) have the ship filling the canvas top-down,
+  /// so the nozzle is at the sprite top (= −size.y/2 from center).
+  void _computeGunNozzleOffset() {
+    if (_sprite == null) {
+      _gunNozzleOffsetY = 0;
+      return;
+    }
+    final src = _sprite!.srcSize;
+    final ar = src.y / src.x; // height:width aspect ratio
+    if (ar > 2.0) {
+      // Tall canvas with centered ship content (e.g. 32×128).
+      // Ship visible from ~36.7% to ~63.3% of sprite height;
+      // gun nozzle at 36.7% → offset from center = -(0.5 - 0.367) = -0.133
+      _gunNozzleOffsetY = -size.y * 0.133;
+    } else {
+      // Normal canvas — gun nozzle at sprite top.
+      _gunNozzleOffsetY = -size.y / 2;
     }
   }
 
@@ -138,13 +169,13 @@ class Vessel extends PositionComponent
         switch (d.slot) {
           case WeaponSlot.frontGun:
             d.sx = position.x;
-            d.sy = position.y - size.y / 2 - 5;
+            d.sy = position.y + _gunNozzleOffsetY - 5;
           case WeaponSlot.leftGun:
             d.sx = position.x - size.x / 2;
-            d.sy = position.y + 9;
+            d.sy = position.y + 18;
           case WeaponSlot.rightGun:
             d.sx = position.x + size.x / 2;
-            d.sy = position.y + 9;
+            d.sy = position.y + 18;
           default:
             d.sx = position.x;
             d.sy = position.y;
@@ -214,7 +245,7 @@ class Vessel extends PositionComponent
       if (fire) {
         d.fire(
           position.x - size.x / 2,
-          position.y - size.y / 2,
+          position.y + _gunNozzleOffsetY, // gun nozzle Y (accounts for sprite padding)
           position.x,
           size.x,
           parent!,

@@ -121,13 +121,13 @@ class Device {
     switch (slot) {
       case WeaponSlot.frontGun:
         px = vesselXm;
-        py = vesselY - 5;
+        py = vesselY - 5; // 5px gap above gun nozzle tip
       case WeaponSlot.leftGun:
         px = vesselX;
-        py = vesselY + 9;
+        py = vesselY + 18;
       case WeaponSlot.rightGun:
         px = vesselX + vesselWidth;
-        py = vesselY + 9;
+        py = vesselY + 18;
       default:
         px = vesselXm;
         py = vesselY;
@@ -136,7 +136,7 @@ class Device {
     // Apply xShift wave effect (VB6: step of 7 per shot)
     if (xShiftMax != 0) {
       px += xShift;
-      xShift += xShiftDir * 7;
+      xShift += xShiftDir * 14;
       if (xShift.abs() >= xShiftMax) xShiftDir = -xShiftDir;
     }
 
